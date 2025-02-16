@@ -1,6 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
 import {
   BarChart,
   Star,
@@ -41,6 +46,59 @@ const metrics = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [hasApps, setHasApps] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function checkApps() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/auth");
+        return;
+      }
+
+      const { count } = await supabase
+        .from("monitored_apps")
+        .select("*", { count: "exact", head: true })
+        .eq("filter_config:user_id", session.user.id);
+
+      setHasApps(count ? count > 0 : false);
+    }
+
+    checkApps();
+  }, [router]);
+
+  if (hasApps === null) {
+    return <div>Loading...</div>;
+  }
+
+  if (!hasApps) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+
+        <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center space-y-2 mb-6">
+              <h3 className="text-lg font-medium">Welcome to ReviewDaddy!</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Get started by adding your first app to monitor its reviews and
+                receive insights
+              </p>
+            </div>
+            <Button onClick={() => router.push("/dashboard/apps/new")}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Your First App
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">

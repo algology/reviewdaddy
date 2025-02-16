@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlayStoreApp {
   id: string;
@@ -47,6 +48,7 @@ interface FilterConfig {
 
 export default function ConfigureFiltersPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [selectedApps, setSelectedApps] = useState<PlayStoreApp[]>([]);
   const [keywordFilters, setKeywordFilters] = useState<KeywordFilter[]>([
     { id: "1", term: "", matchExact: false },
@@ -102,6 +104,30 @@ export default function ConfigureFiltersPage() {
 
   const handleSaveFilters = async () => {
     try {
+      const {
+        data: { session },
+        error: authError,
+      } = await supabase.auth.getSession();
+
+      if (authError || !session) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to save filters",
+          variant: "destructive",
+        });
+        router.push("/auth");
+        return;
+      }
+
+      if (keywordFilters.filter((f) => f.term.trim()).length === 0) {
+        toast({
+          title: "No keywords specified",
+          description: "Please add at least one keyword to filter reviews",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const validKeywords = keywordFilters
         .filter((filter) => filter.term.trim())
         .map((filter) => ({
@@ -125,24 +151,58 @@ export default function ConfigureFiltersPage() {
         )
         .select();
 
-      if (appsError) throw appsError;
+      if (appsError) {
+        toast({
+          title: "Error saving apps",
+          description: appsError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!insertedApps) {
+        toast({
+          title: "Error saving apps",
+          description: "No apps were inserted",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // 2. Create the filter configuration
       const { data: newFilterConfig, error: filterError } = await supabase
         .from("filter_configs")
         .insert({
-          user_id: "temp-user-id",
+          user_id: session.user.id,
           name: `Filter for ${selectedApps.length} apps`,
           match_all_keywords: filterConfig.matchAllKeywords,
           min_rating: filterConfig.minRating,
           max_rating: filterConfig.maxRating,
           date_range: filterConfig.dateRange,
           include_replies: filterConfig.includeReplies,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .select()
         .single();
 
-      if (filterError) throw filterError;
+      if (filterError) {
+        toast({
+          title: "Error saving filter configuration",
+          description: filterError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!newFilterConfig) {
+        toast({
+          title: "Error saving filter configuration",
+          description: "No filter configuration was created",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // 3. Add the keywords
       const { error: keywordsError } = await supabase
@@ -155,9 +215,16 @@ export default function ConfigureFiltersPage() {
           }))
         );
 
-      if (keywordsError) throw keywordsError;
+      if (keywordsError) {
+        toast({
+          title: "Error saving keywords",
+          description: keywordsError.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // 4. Add the apps to be monitored (now using the inserted apps' IDs)
+      // 4. Add the apps to be monitored
       const { error: monitoredAppsError } = await supabase
         .from("monitored_apps")
         .insert(
@@ -167,15 +234,31 @@ export default function ConfigureFiltersPage() {
           }))
         );
 
-      if (monitoredAppsError) throw monitoredAppsError;
+      if (monitoredAppsError) {
+        toast({
+          title: "Error linking apps to filter",
+          description: monitoredAppsError.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Store the filter_config_id in session storage for the reviews page
+      // Success! Store the filter_config_id and redirect
       sessionStorage.setItem("current_filter_id", newFilterConfig.id);
+
+      toast({
+        title: "Filter configuration saved",
+        description: "Redirecting to review monitor...",
+      });
 
       router.push("/dashboard/reviews");
     } catch (error) {
-      console.error("Error saving filter configuration:", error);
-      // You should add proper error handling/notification here
+      toast({
+        title: "Unexpected error",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     }
   };
 

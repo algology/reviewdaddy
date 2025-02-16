@@ -1,149 +1,169 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   SlidersHorizontal,
   Star,
-  ThumbsUp,
-  MessageSquare,
-  Calendar,
-  ArrowUpDown,
+  ChevronDown,
+  ExternalLink,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/lib/supabase";
+import { Database } from "@/types/database.types";
 
-interface Review {
-  id: string;
-  appId: string;
-  appName: string;
-  rating: number;
-  text: string;
-  date: string;
-  userName: string;
-  helpful: number;
-  sentiment: "positive" | "negative" | "neutral";
-  hasDevResponse: boolean;
-  keywords: string[];
+type App = Database["public"]["Tables"]["apps"]["Row"];
+
+interface MonitoredApp {
+  app: App;
+  filter_configs: { user_id: string }[];
 }
 
 export default function ReviewsPage() {
-  const [sortBy, setSortBy] = useState<"date" | "rating" | "helpful">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const router = useRouter();
+  const [apps, setApps] = useState<App[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadApps() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/auth");
+        return;
+      }
+
+      const { data: monitoredApps, error } = await supabase
+        .from("monitored_apps")
+        .select(
+          `
+          app:apps!inner (
+            id,
+            play_store_id,
+            name,
+            developer,
+            icon_url,
+            current_rating,
+            total_reviews,
+            last_synced_at
+          ),
+          filter_configs!inner (user_id)
+        `
+        )
+        .eq("filter_configs.user_id", session.user.id);
+
+      if (!error && monitoredApps) {
+        const extractedApps = (monitoredApps as unknown as MonitoredApp[])
+          .map((ma) => ma.app)
+          .filter((app): app is App => app !== null);
+        setApps(extractedApps);
+      }
+      setIsLoading(false);
+    }
+
+    loadApps();
+  }, [router]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Review Monitor</h1>
           <p className="text-muted-foreground mt-1">
-            Analyzing reviews from 3 apps
+            Monitoring {apps.length} app{apps.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <SlidersHorizontal className="h-4 w-4" />
-          Modify Filters
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              <SlidersHorizontal className="h-4 w-4 mr-2" />
+              Filter Settings
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => router.push(`/dashboard/reviews/filters`)}
+            >
+              Edit Filters
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#00ff8c]/10 flex items-center justify-center">
-                <MessageSquare className="h-4 w-4 text-[#00ff8c]" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Matching Reviews
-                </p>
-                <p className="text-xl font-bold">247</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        {/* Add similar cards for Avg Rating, Lead Potential, Critical Issues */}
-      </div>
-
-      {/* Search and Filters */}
-      <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-        <CardContent className="p-4 space-y-4">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search within results..."
-                className="pl-9 bg-sidebar-accent/40 border-accent-2"
-              />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <ArrowUpDown className="h-4 w-4" />
-                  Sort by: {sortBy}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => setSortBy("date")}>
-                  Date
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("rating")}>
-                  Rating
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("helpful")}>
-                  Helpful Count
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Reviews List */}
-      <div className="space-y-4">
-        <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-medium">Game Name</h3>
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-[#00ff8c] text-[#00ff8c]" />
-                    <span className="text-sm">4.0</span>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>App</TableHead>
+            <TableHead className="text-right">Rating</TableHead>
+            <TableHead className="text-right">Total Reviews</TableHead>
+            <TableHead>Last Updated</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {apps.map((app) => (
+            <TableRow key={app.id}>
+              <TableCell>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-accent-2/50 overflow-hidden relative">
+                    <img
+                      src={app.icon_url}
+                      alt={app.name}
+                      className="w-full h-full object-cover relative z-10"
+                      loading="lazy"
+                      crossOrigin="anonymous"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = "/placeholder-app-icon.png";
+                        target.classList.add("opacity-50");
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-accent-2/30 z-0" />
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    • 2 days ago
-                  </span>
+                  <div>
+                    <div className="font-medium">{app.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {app.developer}
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Long review text here discussing various issues...
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-xs px-2 py-1 rounded-full bg-[#00ff8c]/10 text-[#00ff8c] border border-[#00ff8c]/20">
-                    matchmaking
-                  </span>
-                  <span className="text-xs px-2 py-1 rounded-full bg-[#00ff8c]/10 text-[#00ff8c] border border-[#00ff8c]/20">
-                    server issues
-                  </span>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                Mark as Lead
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        {/* More review cards... */}
-      </div>
+              </TableCell>
+              <TableCell className="text-right">{app.current_rating}</TableCell>
+              <TableCell className="text-right">
+                {app.total_reviews.toLocaleString()}
+              </TableCell>
+              <TableCell>
+                {app.last_synced_at
+                  ? new Date(app.last_synced_at).toLocaleDateString()
+                  : "Never"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
