@@ -35,14 +35,20 @@ import { useToast } from "@/hooks/use-toast";
 
 type App = Database["public"]["Tables"]["apps"]["Row"];
 
+interface FilterKeyword {
+  id: string;
+  term: string;
+  match_exact: boolean;
+}
+
 interface FilterConfig {
   id: string;
-  min_rating: number;
-  max_rating: number;
-  date_range: number;
+  min_rating: number | null;
+  max_rating: number | null;
+  date_range: number | null;
   include_replies: boolean;
   match_all_keywords: boolean;
-  filter_keywords?: string[];
+  filter_keywords: FilterKeyword[];
 }
 
 interface MonitoredApp {
@@ -96,7 +102,14 @@ export default function ReviewsPage() {
         .eq("filter_configs.user_id", session.user.id);
 
       if (!error && data) {
-        setMonitoredApps(data as MonitoredApp[]);
+        const monitoredApps = data.map((item: any) => ({
+          app: item.app,
+          filter_config: {
+            ...item.filter_config,
+            filter_keywords: item.filter_config.filter_keywords || [],
+          },
+        }));
+        setMonitoredApps(monitoredApps);
       }
       setIsLoading(false);
     }
@@ -195,10 +208,10 @@ export default function ReviewsPage() {
                   )}
 
                   {/* Keywords Count */}
-                  {app.filter_config.filter_keywords?.length > 0 && (
+                  {(app.filter_config.filter_keywords?.length ?? 0) > 0 && (
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
                       <Tag className="h-3 w-3 mr-1" />
-                      {app.filter_config.filter_keywords.length} keywords
+                      {app.filter_config.filter_keywords?.length} keywords
                       {app.filter_config.match_all_keywords ? " (ALL)" : ""}
                     </span>
                   )}
