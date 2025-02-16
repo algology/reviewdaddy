@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ComponentFilterConfig, ComponentKeywordFilter } from "@/types/filters";
 
 interface PlayStoreApp {
   id: string;
@@ -44,8 +45,8 @@ interface FilterConfig {
 
 interface ReviewFilterConfiguratorProps {
   selectedApps?: PlayStoreApp[];
-  initialConfig?: Partial<FilterConfig>;
-  onSave: (config: FilterConfig) => Promise<void>;
+  initialConfig?: ComponentFilterConfig;
+  onSave: (config: ComponentFilterConfig) => Promise<void>;
   showAppsList?: boolean;
 }
 
@@ -55,10 +56,10 @@ export default function ReviewFilterConfigurator({
   onSave,
   showAppsList = true,
 }: ReviewFilterConfiguratorProps) {
-  const [keywordFilters, setKeywordFilters] = useState<KeywordFilter[]>([
-    { id: "1", term: "", matchExact: false },
-  ]);
-  const [filterConfig, setFilterConfig] = useState<FilterConfig>({
+  const [keywordFilters, setKeywordFilters] = useState<
+    ComponentKeywordFilter[]
+  >([{ id: "1", term: "", matchExact: false }]);
+  const [filterConfig, setFilterConfig] = useState<ComponentFilterConfig>({
     keywords: [],
     matchAllKeywords: initialConfig?.matchAllKeywords ?? false,
     minRating: initialConfig?.minRating ?? 1,
@@ -74,8 +75,8 @@ export default function ReviewFilterConfigurator({
     ]);
   };
 
-  const handleRemoveKeywordFilter = (id: string) => {
-    if (keywordFilters.length === 1) return;
+  const handleRemoveKeywordFilter = (id: string | undefined) => {
+    if (!id || keywordFilters.length === 1) return;
     setKeywordFilters((prev) => prev.filter((filter) => filter.id !== id));
   };
 
@@ -114,7 +115,7 @@ export default function ReviewFilterConfigurator({
       keywords: validKeywords,
     };
 
-    await onSave(configToSave as FilterConfig);
+    await onSave(configToSave as ComponentFilterConfig);
   };
 
   return (

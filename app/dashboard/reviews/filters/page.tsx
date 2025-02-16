@@ -2,31 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { Database } from "@/types/database.types";
-
-type App = Database["public"]["Tables"]["apps"]["Row"];
-type FilterConfig = Database["public"]["Tables"]["filter_configs"]["Row"] & {
-  filter_keywords: Database["public"]["Tables"]["filter_keywords"]["Row"][];
-};
-
-interface MonitoredApp {
-  app: App;
-  filter_config: FilterConfig;
-}
+import { supabase } from "@/lib/supabase";
+import ReviewFilterConfigurator from "@/app/components/ReviewFilterConfigurator";
+import { DBFilterConfig, ComponentFilterConfig } from "@/types/filters";
 
 export default function EditFiltersPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [filterConfig, setFilterConfig] = useState<FilterConfig | null>(null);
+  const [filterConfig, setFilterConfig] = useState<DBFilterConfig | null>(null);
 
   useEffect(() => {
     async function loadCurrentFilters() {
@@ -73,7 +58,7 @@ export default function EditFiltersPage() {
       }
 
       if (data) {
-        setFilterConfig(data as FilterConfig);
+        setFilterConfig(data as DBFilterConfig);
       }
       setIsLoading(false);
     }
@@ -81,41 +66,32 @@ export default function EditFiltersPage() {
     loadCurrentFilters();
   }, [router, toast]);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!filterConfig) {
-    return <div>No filter configuration found</div>;
-  }
-
-  const handleUpdateFilters = async () => {
+  const handleUpdateFilters = async (config: ComponentFilterConfig) => {
     if (!filterConfig) return;
 
     try {
       const { error: configError } = await supabase
         .from("filter_configs")
         .update({
-          match_all_keywords: filterConfig.match_all_keywords,
-          min_rating: filterConfig.min_rating,
-          max_rating: filterConfig.max_rating,
-          date_range: filterConfig.date_range,
-          include_replies: filterConfig.include_replies,
+          match_all_keywords: config.matchAllKeywords,
+          min_rating: config.minRating,
+          max_rating: config.maxRating,
+          date_range: config.dateRange,
+          include_replies: config.includeReplies,
           updated_at: new Date().toISOString(),
         })
         .eq("id", filterConfig.id);
 
       if (configError) throw configError;
 
-      // Update keywords
       const { error: keywordsError } = await supabase
         .from("filter_keywords")
         .upsert(
-          filterConfig.filter_keywords.map((k) => ({
+          config.keywords.map((k) => ({
             id: k.id,
             filter_config_id: filterConfig.id,
             term: k.term,
-            match_exact: k.match_exact,
+            match_exact: k.matchExact,
           }))
         );
 
@@ -137,6 +113,28 @@ export default function EditFiltersPage() {
     }
   };
 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!filterConfig) {
+    return <div>No filter configuration found</div>;
+  }
+
+  // Transform database format to component format
+  const initialConfig: ComponentFilterConfig = {
+    keywords: filterConfig.filter_keywords.map((k) => ({
+      id: k.id,
+      term: k.term,
+      matchExact: k.match_exact,
+    })),
+    matchAllKeywords: filterConfig.match_all_keywords,
+    minRating: filterConfig.min_rating ?? 1,
+    maxRating: filterConfig.max_rating ?? 5,
+    dateRange: filterConfig.date_range ?? 30,
+    includeReplies: filterConfig.include_replies,
+  };
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
@@ -147,88 +145,11 @@ export default function EditFiltersPage() {
         </p>
       </div>
 
-      {/* Keyword Filters */}
-      <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-        <CardHeader>
-          <h3 className="text-lg font-medium">Keyword Filters</h3>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {filterConfig.filter_keywords.map((filter, index) => (
-            <div key={index} className="flex items-start gap-4">
-              <div className="flex-1 space-y-2">
-                <Input
-                  placeholder="Enter keyword or phrase"
-                  value={filter.term}
-                  onChange={(e) => {
-                    const newFilters = [...filterConfig.filter_keywords];
-                    newFilters[index].term = e.target.value;
-                    setFilterConfig({
-                      ...filterConfig,
-                      filter_keywords: newFilters,
-                    });
-                  }}
-                />
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`exact-match-${index}`}
-                    checked={filter.match_exact}
-                    onCheckedChange={(checked) => {
-                      const newFilters = [...filterConfig.filter_keywords];
-                      newFilters[index].match_exact = checked;
-                      setFilterConfig({
-                        ...filterConfig,
-                        filter_keywords: newFilters,
-                      });
-                    }}
-                  />
-                  <Label htmlFor={`exact-match-${index}`}>Exact match</Label>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10"
-                onClick={() => {
-                  setFilterConfig({
-                    ...filterConfig,
-                    filter_keywords: filterConfig.filter_keywords.filter(
-                      (_, i) => i !== index
-                    ),
-                  });
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              setFilterConfig({
-                ...filterConfig,
-                filter_keywords: [
-                  ...filterConfig.filter_keywords,
-                  { id: "", term: "", match_exact: false },
-                ],
-              });
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Keyword
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end gap-4">
-        <Button
-          variant="outline"
-          onClick={() => router.push("/dashboard/reviews")}
-        >
-          Cancel
-        </Button>
-        <Button onClick={handleUpdateFilters}>Save Changes</Button>
-      </div>
+      <ReviewFilterConfigurator
+        initialConfig={initialConfig}
+        onSave={handleUpdateFilters}
+        showAppsList={false}
+      />
     </div>
   );
 }

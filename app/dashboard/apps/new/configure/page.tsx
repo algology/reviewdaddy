@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import ReviewFilterConfigurator from "@/app/components/ReviewFilterConfigurator";
+import { ComponentFilterConfig } from "@/types/filters";
 
 interface PlayStoreApp {
   id: string;
@@ -47,7 +48,7 @@ export default function ConfigureFiltersPage() {
     setSelectedApps(JSON.parse(apps));
   }, [router]);
 
-  const handleSaveFilters = async (config: FilterConfig) => {
+  const handleSaveFilters = async (config: ComponentFilterConfig) => {
     try {
       const {
         data: { session },
