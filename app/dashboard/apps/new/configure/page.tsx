@@ -11,6 +11,7 @@ import {
   Calendar,
   MessageSquare,
   Tag,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
 
 interface PlayStoreApp {
   id: string;
@@ -98,22 +100,83 @@ export default function ConfigureFiltersPage() {
     );
   };
 
-  const handleSaveFilters = () => {
-    const validKeywords = keywordFilters
-      .filter((filter) => filter.term.trim())
-      .map((filter) => ({
-        term: filter.term.trim(),
-        matchExact: filter.matchExact,
-      }));
+  const handleSaveFilters = async () => {
+    try {
+      const validKeywords = keywordFilters
+        .filter((filter) => filter.term.trim())
+        .map((filter) => ({
+          term: filter.term.trim(),
+          matchExact: filter.matchExact,
+        }));
 
-    const config = {
-      apps: selectedApps.map((app) => app.id),
-      ...filterConfig,
-      keywords: validKeywords,
-    };
+      // 1. Insert apps first
+      const { data: insertedApps, error: appsError } = await supabase
+        .from("apps")
+        .upsert(
+          selectedApps.map((app) => ({
+            play_store_id: app.id,
+            name: app.name,
+            developer: app.developer,
+            icon_url: app.icon,
+            current_rating: app.rating,
+            total_reviews: app.reviews,
+          })),
+          { onConflict: "play_store_id" }
+        )
+        .select();
 
-    console.log("Filter configuration:", config);
-    router.push("/dashboard/reviews");
+      if (appsError) throw appsError;
+
+      // 2. Create the filter configuration
+      const { data: newFilterConfig, error: filterError } = await supabase
+        .from("filter_configs")
+        .insert({
+          user_id: "temp-user-id",
+          name: `Filter for ${selectedApps.length} apps`,
+          match_all_keywords: filterConfig.matchAllKeywords,
+          min_rating: filterConfig.minRating,
+          max_rating: filterConfig.maxRating,
+          date_range: filterConfig.dateRange,
+          include_replies: filterConfig.includeReplies,
+        })
+        .select()
+        .single();
+
+      if (filterError) throw filterError;
+
+      // 3. Add the keywords
+      const { error: keywordsError } = await supabase
+        .from("filter_keywords")
+        .insert(
+          validKeywords.map((keyword) => ({
+            filter_config_id: newFilterConfig.id,
+            term: keyword.term,
+            match_exact: keyword.matchExact,
+          }))
+        );
+
+      if (keywordsError) throw keywordsError;
+
+      // 4. Add the apps to be monitored (now using the inserted apps' IDs)
+      const { error: monitoredAppsError } = await supabase
+        .from("monitored_apps")
+        .insert(
+          insertedApps.map((app) => ({
+            app_id: app.id,
+            filter_config_id: newFilterConfig.id,
+          }))
+        );
+
+      if (monitoredAppsError) throw monitoredAppsError;
+
+      // Store the filter_config_id in session storage for the reviews page
+      sessionStorage.setItem("current_filter_id", newFilterConfig.id);
+
+      router.push("/dashboard/reviews");
+    } catch (error) {
+      console.error("Error saving filter configuration:", error);
+      // You should add proper error handling/notification here
+    }
   };
 
   return (
@@ -431,22 +494,27 @@ export default function ConfigureFiltersPage() {
             <Label className="mb-2 block">Review Date Range</Label>
             <div className="flex items-center gap-4">
               <Calendar className="h-4 w-4 text-[#00ff8c]" />
-              <select
-                className="bg-sidebar-accent/40 border border-accent-2 rounded-md p-2"
-                value={filterConfig.dateRange}
-                onChange={(e) =>
-                  setFilterConfig((prev) => ({
-                    ...prev,
-                    dateRange: Number(e.target.value),
-                  }))
-                }
-              >
-                <option value={7}>Last 7 days</option>
-                <option value={30}>Last 30 days</option>
-                <option value={90}>Last 3 months</option>
-                <option value={180}>Last 6 months</option>
-                <option value={365}>Last year</option>
-              </select>
+              <div className="relative w-[200px]">
+                <select
+                  className="w-full appearance-none bg-sidebar-accent/40 border border-accent-2 rounded-md p-2 pr-8"
+                  value={filterConfig.dateRange}
+                  onChange={(e) =>
+                    setFilterConfig((prev) => ({
+                      ...prev,
+                      dateRange: Number(e.target.value),
+                    }))
+                  }
+                >
+                  <option value={7}>Last 7 days</option>
+                  <option value={30}>Last 30 days</option>
+                  <option value={90}>Last 3 months</option>
+                  <option value={180}>Last 6 months</option>
+                  <option value={365}>Last year</option>
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -464,7 +532,6 @@ export default function ConfigureFiltersPage() {
               />
               <Label>Include Developer Replies</Label>
             </div>
-            <MessageSquare className="h-4 w-4 text-[#00ff8c]" />
           </div>
         </CardContent>
       </Card>
