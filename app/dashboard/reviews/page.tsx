@@ -8,6 +8,10 @@ import {
   Star,
   ChevronDown,
   ExternalLink,
+  Pencil,
+  Calendar,
+  Tag,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,17 +31,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/database.types";
+import { useToast } from "@/hooks/use-toast";
 
 type App = Database["public"]["Tables"]["apps"]["Row"];
 
+interface FilterConfig {
+  id: string;
+  min_rating: number;
+  max_rating: number;
+  date_range: number;
+  include_replies: boolean;
+  match_all_keywords: boolean;
+  filter_keywords?: string[];
+}
+
 interface MonitoredApp {
   app: App;
-  filter_configs: { user_id: string }[];
+  filter_config: FilterConfig;
 }
 
 export default function ReviewsPage() {
   const router = useRouter();
-  const [apps, setApps] = useState<App[]>([]);
+  const [monitoredApps, setMonitoredApps] = useState<MonitoredApp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,19 +60,17 @@ export default function ReviewsPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       if (!session) {
         router.push("/auth");
         return;
       }
 
-      const { data: monitoredApps, error } = await supabase
+      const { data, error } = await supabase
         .from("monitored_apps")
         .select(
           `
           app:apps!inner (
             id,
-            play_store_id,
             name,
             developer,
             icon_url,
@@ -65,16 +78,25 @@ export default function ReviewsPage() {
             total_reviews,
             last_synced_at
           ),
-          filter_configs!inner (user_id)
+          filter_config:filter_configs!inner (
+            id,
+            min_rating,
+            max_rating,
+            date_range,
+            include_replies,
+            match_all_keywords,
+            filter_keywords (
+              id,
+              term,
+              match_exact
+            )
+          )
         `
         )
         .eq("filter_configs.user_id", session.user.id);
 
-      if (!error && monitoredApps) {
-        const extractedApps = (monitoredApps as unknown as MonitoredApp[])
-          .map((ma) => ma.app)
-          .filter((app): app is App => app !== null);
-        setApps(extractedApps);
+      if (!error && data) {
+        setMonitoredApps(data as MonitoredApp[]);
       }
       setIsLoading(false);
     }
@@ -82,9 +104,7 @@ export default function ReviewsPage() {
     loadApps();
   }, [router]);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+  if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -92,44 +112,33 @@ export default function ReviewsPage() {
         <div>
           <h1 className="text-2xl font-bold">Review Monitor</h1>
           <p className="text-muted-foreground mt-1">
-            Monitoring {apps.length} app{apps.length !== 1 ? "s" : ""}
+            Monitoring {monitoredApps.length} app
+            {monitoredApps.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Filter Settings
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => router.push(`/dashboard/reviews/filters`)}
-            >
-              Edit Filters
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>App</TableHead>
+            <TableHead>Developer</TableHead>
             <TableHead className="text-right">Rating</TableHead>
-            <TableHead className="text-right">Total Reviews</TableHead>
+            <TableHead className="text-right">Reviews</TableHead>
             <TableHead>Last Updated</TableHead>
+            <TableHead>Active Filters</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {apps.map((app) => (
-            <TableRow key={app.id}>
+          {monitoredApps.map((app) => (
+            <TableRow key={app.app.id}>
               <TableCell>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-accent-2/50 overflow-hidden relative">
                     <img
-                      src={app.icon_url}
-                      alt={app.name}
+                      src={app.app.icon_url}
+                      alt={app.app.name}
                       className="w-full h-full object-cover relative z-10"
                       loading="lazy"
                       crossOrigin="anonymous"
@@ -144,21 +153,78 @@ export default function ReviewsPage() {
                     <div className="absolute inset-0 bg-accent-2/30 z-0" />
                   </div>
                   <div>
-                    <div className="font-medium">{app.name}</div>
+                    <div className="font-medium">{app.app.name}</div>
                     <div className="text-sm text-muted-foreground">
-                      {app.developer}
+                      {app.app.developer}
                     </div>
                   </div>
                 </div>
               </TableCell>
-              <TableCell className="text-right">{app.current_rating}</TableCell>
+              <TableCell>{app.app.developer}</TableCell>
               <TableCell className="text-right">
-                {app.total_reviews.toLocaleString()}
+                {app.app.current_rating}
+              </TableCell>
+              <TableCell className="text-right">
+                {app.app.total_reviews}
               </TableCell>
               <TableCell>
-                {app.last_synced_at
-                  ? new Date(app.last_synced_at).toLocaleDateString()
+                {app.app.last_synced_at
+                  ? new Date(app.app.last_synced_at).toLocaleDateString()
                   : "Never"}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-1.5">
+                  {/* Rating Filter */}
+                  {(app.filter_config.min_rating ||
+                    app.filter_config.max_rating) && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                      <Star className="h-3 w-3 mr-1" />
+                      {app.filter_config.min_rating ===
+                      app.filter_config.max_rating
+                        ? `${app.filter_config.min_rating}★`
+                        : `${app.filter_config.min_rating}-${app.filter_config.max_rating}★`}
+                    </span>
+                  )}
+
+                  {/* Date Range */}
+                  {app.filter_config.date_range && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {app.filter_config.date_range} days
+                    </span>
+                  )}
+
+                  {/* Keywords Count */}
+                  {app.filter_config.filter_keywords?.length > 0 && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                      <Tag className="h-3 w-3 mr-1" />
+                      {app.filter_config.filter_keywords.length} keywords
+                      {app.filter_config.match_all_keywords ? " (ALL)" : ""}
+                    </span>
+                  )}
+
+                  {/* Developer Replies */}
+                  {app.filter_config.include_replies && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      Include replies
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    router.push(
+                      `/dashboard/reviews/filters/${app.filter_config.id}`
+                    )
+                  }
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Filters
+                </Button>
               </TableCell>
             </TableRow>
           ))}
