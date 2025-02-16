@@ -31,18 +31,6 @@ export function DashboardHeader() {
               className="h-9 md:w-[300px] lg:w-[400px] pl-9 bg-sidebar-accent/40 border-accent-2"
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-4 border-sidebar-border">
-                <span>My App</span>
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem>App 1</DropdownMenuItem>
-              <DropdownMenuItem>App 2</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         <div className="flex items-center gap-2">

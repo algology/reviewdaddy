@@ -123,3 +123,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+img {
+  @apply select-none;
+  -webkit-user-drag: none;
+}

@@ -12,6 +12,8 @@ import {
   Tags,
   AlertCircle,
   Search,
+  Smartphone,
+  PlusCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,6 +55,23 @@ const menuItems = [
         icon: BarChart,
         href: "/dashboard/analytics",
         tooltip: "Review metrics and trends",
+      },
+    ],
+  },
+  {
+    section: "Apps",
+    items: [
+      {
+        title: "My Apps",
+        icon: Smartphone,
+        href: "/dashboard/apps",
+        tooltip: "Manage connected apps",
+      },
+      {
+        title: "Add New App",
+        icon: PlusCircle,
+        href: "/dashboard/apps/new",
+        tooltip: "Connect a new app",
       },
     ],
   },
