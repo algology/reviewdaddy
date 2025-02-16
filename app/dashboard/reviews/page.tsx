@@ -23,15 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/database.types";
-import { useToast } from "@/hooks/use-toast";
 
 type App = Database["public"]["Tables"]["apps"]["Row"];
 
