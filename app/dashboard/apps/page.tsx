@@ -258,7 +258,7 @@ export default function AppsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive"
               onClick={() => {
                 if (appToDelete) {
                   handleDeleteApp(appToDelete);
