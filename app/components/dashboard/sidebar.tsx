@@ -126,10 +126,10 @@ const menuItems = [
 export function DashboardSidebar() {
   return (
     <TooltipProvider delayDuration={0}>
-      <Sidebar collapsible="icon" className="absolute left-0">
+      <Sidebar collapsible="icon" className="sticky top-0 h-screen">
         <div
           data-sidebar="sidebar"
-          className="!bg-[#121212] flex h-full w-full flex-col"
+          className="!bg-[#121212] flex h-screen w-full flex-col"
         >
           <SidebarContent>
             {menuItems.map((section, index) => (
