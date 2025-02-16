@@ -1,30 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import ReviewFilterConfigurator from "@/app/components/ReviewFilterConfigurator";
+import { DBFilterConfig, ComponentFilterConfig } from "@/types/filters";
 
-interface DBFilterConfig {
-  id: string;
-  user_id: string;
-  name: string;
-  min_rating: number | null;
-  max_rating: number | null;
-  match_all_keywords: boolean;
-  date_range: number | null;
-  include_replies: boolean;
-  created_at: string;
-  updated_at: string;
-  filter_keywords: {
-    id: string;
-    term: string;
-    match_exact: boolean;
-  }[];
-}
-
-export default function EditFilterPage({ params }: { params: { id: string } }) {
+export default function EditFilterPage() {
+  const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const [filterConfig, setFilterConfig] = useState<DBFilterConfig | null>(null);
@@ -86,7 +70,7 @@ export default function EditFilterPage({ params }: { params: { id: string } }) {
     return <div>Loading...</div>;
   }
 
-  const initialConfig = {
+  const initialConfig: ComponentFilterConfig = {
     keywords: filterConfig.filter_keywords.map((k) => ({
       id: k.id,
       term: k.term,

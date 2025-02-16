@@ -58,9 +58,13 @@ export default function ReviewFilterConfigurator({
 }: ReviewFilterConfiguratorProps) {
   const [keywordFilters, setKeywordFilters] = useState<
     ComponentKeywordFilter[]
-  >([{ id: "1", term: "", matchExact: false }]);
+  >(
+    initialConfig?.keywords?.length
+      ? initialConfig.keywords
+      : [{ id: "1", term: "", matchExact: false }]
+  );
   const [filterConfig, setFilterConfig] = useState<ComponentFilterConfig>({
-    keywords: [],
+    keywords: initialConfig?.keywords ?? [],
     matchAllKeywords: initialConfig?.matchAllKeywords ?? false,
     minRating: initialConfig?.minRating ?? 1,
     maxRating: initialConfig?.maxRating ?? 5,
@@ -102,6 +106,7 @@ export default function ReviewFilterConfigurator({
     const validKeywords = keywordFilters
       .filter((filter) => filter.term.trim())
       .map((filter) => ({
+        id: filter.id,
         term: filter.term.trim(),
         matchExact: filter.matchExact,
       }));
@@ -115,7 +120,7 @@ export default function ReviewFilterConfigurator({
       keywords: validKeywords,
     };
 
-    await onSave(configToSave as ComponentFilterConfig);
+    await onSave(configToSave);
   };
 
   return (
