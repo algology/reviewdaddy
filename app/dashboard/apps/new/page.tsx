@@ -42,6 +42,7 @@ export default function NewAppPage() {
       const data = await response.json();
       setSearchResults(data.apps);
     } catch (error) {
+      console.error("Search error:", error);
       setError("Failed to search apps. Please try again.");
       setSearchResults([]);
     } finally {
