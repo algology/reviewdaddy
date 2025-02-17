@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -27,19 +27,23 @@ interface AnalyticsFilterProps {
   apps: App[];
   selectedApp: string | null;
   onAppChange: (appId: string | null) => void;
+  dateRange: number;
+  onDateRangeChange: (days: number) => void;
 }
 
 export function AnalyticsFilter({
   apps,
   selectedApp,
   onAppChange,
+  dateRange,
+  onDateRangeChange,
 }: AnalyticsFilterProps) {
   const [open, setOpen] = useState(false);
   const selectedAppName =
     apps.find((app) => app.id === selectedApp)?.name || "All Apps";
 
   return (
-    <div className="flex">
+    <div className="flex items-center gap-4">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -97,6 +101,26 @@ export function AnalyticsFilter({
           </Command>
         </PopoverContent>
       </Popover>
+
+      <div className="flex items-center gap-2">
+        <Calendar className="h-4 w-4 text-[#00ff8c]" />
+        <div className="relative">
+          <select
+            className="appearance-none bg-[#121212]/95 backdrop-blur-sm border-accent-2 rounded-md p-2 pr-8 text-sm hover:bg-accent-2/20"
+            value={dateRange}
+            onChange={(e) => onDateRangeChange(Number(e.target.value))}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 3 months</option>
+            <option value={180}>Last 6 months</option>
+            <option value={365}>Last year</option>
+          </select>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

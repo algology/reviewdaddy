@@ -18,6 +18,8 @@ import {
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
+  Filter,
+  Calendar,
 } from "lucide-react";
 import {
   LineChart,
@@ -51,9 +53,23 @@ interface AnalyticsData {
   }[];
 }
 
+interface FilterKeyword {
+  id: string;
+  term: string;
+  match_exact: boolean;
+}
+
+interface FilterConfig {
+  min_rating?: number;
+  max_rating?: number;
+  date_range?: number;
+  filter_keywords: FilterKeyword[];
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<number>(30);
   const [apps, setApps] = useState<{ id: string; name: string }[]>([]);
   const [data, setData] = useState<AnalyticsData>({
     reviewTrend: [],
@@ -61,6 +77,7 @@ export default function AnalyticsPage() {
     keywordMatches: [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [filterConfig, setFilterConfig] = useState<any>(null);
 
   useEffect(() => {
     async function loadApps() {
@@ -95,9 +112,9 @@ export default function AnalyticsPage() {
         return;
       }
 
-      // Get review trend data for the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Get review trend data for the selected date range
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - dateRange);
 
       const [allReviews, matchedReviews] = await Promise.all([
         // Get all reviews for the app
@@ -105,7 +122,7 @@ export default function AnalyticsPage() {
           .from("reviews")
           .select("review_date")
           .eq("app_id", selectedApp)
-          .gte("review_date", thirtyDaysAgo.toISOString())
+          .gte("review_date", cutoffDate.toISOString())
           .order("review_date", { ascending: true }),
 
         // Get matched reviews
@@ -122,7 +139,7 @@ export default function AnalyticsPage() {
           `
           )
           .eq("review.app_id", selectedApp)
-          .gte("review.review_date", thirtyDaysAgo.toISOString()),
+          .gte("review.review_date", cutoffDate.toISOString()),
       ]);
 
       if (allReviews.data && matchedReviews.data) {
@@ -153,7 +170,7 @@ export default function AnalyticsPage() {
         // Fill in missing dates with 0
         const trend = [];
         for (
-          let d = new Date(thirtyDaysAgo);
+          let d = new Date(cutoffDate);
           d <= new Date();
           d.setDate(d.getDate() + 1)
         ) {
@@ -176,7 +193,44 @@ export default function AnalyticsPage() {
     }
 
     loadAnalytics();
-  }, [router, selectedApp]);
+  }, [router, selectedApp, dateRange]);
+
+  useEffect(() => {
+    async function loadFilterConfig() {
+      if (!selectedApp) {
+        setFilterConfig(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("monitored_apps")
+        .select(
+          `
+          filter_config:filter_configs!inner (
+            id,
+            min_rating,
+            max_rating,
+            date_range,
+            include_replies,
+            match_all_keywords,
+            filter_keywords (
+              id,
+              term,
+              match_exact
+            )
+          )
+        `
+        )
+        .eq("app_id", selectedApp)
+        .single();
+
+      if (!error && data) {
+        setFilterConfig(data.filter_config);
+      }
+    }
+
+    loadFilterConfig();
+  }, [selectedApp]);
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -193,106 +247,91 @@ export default function AnalyticsPage() {
           apps={apps}
           selectedApp={selectedApp}
           onAppChange={setSelectedApp}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-          <CardContent className="p-6">
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Matches
-                </p>
-                <h2 className="text-2xl font-bold mt-2">
-                  {data.reviewTrend
-                    .reduce((acc, item) => acc + item.totalReviews, 0)
-                    .toLocaleString()}
-                </h2>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-accent-2/50 flex items-center justify-center">
-                <MessageSquare className="h-6 w-6 text-[#00ff8c]" />
-              </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+        <Card className="bg-accent/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Reviews</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data.reviewTrend
+                .reduce((acc, item) => acc + item.totalReviews, 0)
+                .toLocaleString()}
             </div>
-            <div className="mt-4 h-[60px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.reviewTrend.slice(-7)}>
-                  <Area
-                    type="monotone"
-                    dataKey="totalReviews"
-                    stroke="#00ff8c"
-                    fill="#00ff8c20"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              in the last {dateRange} days
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-          <CardContent className="p-6">
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Average Rating
-                </p>
-                <h2 className="text-2xl font-bold mt-2">
-                  {data.ratingDistribution.reduce(
-                    (acc, item) => acc + item.rating * item.count,
-                    0
-                  ) /
-                    data.ratingDistribution.reduce(
-                      (acc, item) => acc + item.count,
-                      0
-                    ) || 0}
-                </h2>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-accent-2/50 flex items-center justify-center">
-                <Star className="h-6 w-6 text-[#00ff8c]" />
-              </div>
+
+        <Card className="bg-accent/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Matched Reviews
+            </CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data.reviewTrend
+                .reduce((acc, item) => acc + item.matchedReviews, 0)
+                .toLocaleString()}
             </div>
-            <div className="mt-4 h-[60px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.ratingDistribution.slice(-7)}>
-                  <Area
-                    type="monotone"
-                    dataKey="rating"
-                    stroke="#00ff8c"
-                    fill="#00ff8c20"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              in the last {dateRange} days
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#121212]/95 backdrop-blur-sm border-accent-2">
-          <CardContent className="p-6">
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Keyword Matches
-                </p>
-                <h2 className="text-2xl font-bold mt-2">
-                  {data.keywordMatches.reduce(
-                    (acc, item) => acc + item.matches,
-                    0
+
+        <Card className="bg-accent/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Active Filters
+            </CardTitle>
+            <Filter className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {selectedApp && filterConfig && (
+                <>
+                  {(filterConfig.min_rating || filterConfig.max_rating) && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                      <Star className="h-3 w-3 mr-1" />
+                      {filterConfig.min_rating === filterConfig.max_rating
+                        ? `${filterConfig.min_rating}★`
+                        : `${filterConfig.min_rating}-${filterConfig.max_rating}★`}
+                    </span>
                   )}
-                </h2>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-accent-2/50 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-[#00ff8c]" />
-              </div>
-            </div>
-            <div className="mt-4 h-[60px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.keywordMatches.slice(-7)}>
-                  <Area
-                    type="monotone"
-                    dataKey="matches"
-                    stroke="#00ff8c"
-                    fill="#00ff8c20"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                  {filterConfig.date_range && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {filterConfig.date_range} days
+                    </span>
+                  )}
+                  {filterConfig.filter_keywords.map(
+                    (keyword: FilterKeyword) => (
+                      <span
+                        key={keyword.id}
+                        className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30"
+                      >
+                        {keyword.term}
+                        {keyword.match_exact && " (exact)"}
+                      </span>
+                    )
+                  )}
+                </>
+              )}
+              {(!selectedApp || !filterConfig) && (
+                <p className="text-xs text-muted-foreground">
+                  No filters applied
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -304,7 +343,7 @@ export default function AnalyticsPage() {
             <CardTitle className="flex items-center justify-between">
               <span>Review Trends</span>
               <span className="text-sm font-normal text-[#00ff8c]">
-                Last 30 days
+                Last {dateRange} days
               </span>
             </CardTitle>
           </CardHeader>
