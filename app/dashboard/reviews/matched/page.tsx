@@ -219,14 +219,29 @@ export default function MatchedReviewsPage() {
 
       <div className="space-y-4">
         {reviews.map((matchedReview) => (
-          <Card key={matchedReview.id}>
+          <Card
+            key={matchedReview.id}
+            className="bg-[#121212]/95 backdrop-blur-sm border-accent-2"
+          >
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <img
-                  src={matchedReview.review.app.icon_url}
-                  alt={matchedReview.review.app.name}
-                  className="w-12 h-12 rounded-lg"
-                />
+                <div className="w-12 h-12 rounded-lg bg-accent-2/50 overflow-hidden relative">
+                  <img
+                    src={matchedReview.review.app.icon_url}
+                    alt={matchedReview.review.app.name}
+                    className="w-full h-full object-cover relative z-10"
+                    loading="lazy"
+                    crossOrigin="anonymous"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null;
+                      target.src = "/placeholder-app-icon.png";
+                      target.classList.add("opacity-50");
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-accent-2/30 z-0" />
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium">
