@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import gplay from "google-play-scraper";
+import gplay, { SearchResult } from "google-play-scraper";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     });
 
     const apps = await Promise.all(
-      results.map(async (app: any) => {
+      results.map(async (app: SearchResult) => {
         try {
           const details = await gplay.app({ appId: app.appId });
           return {

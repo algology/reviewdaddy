@@ -20,30 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
-import { Database } from "@/types/database.types";
-
-type App = Database["public"]["Tables"]["apps"]["Row"];
-
-interface FilterKeyword {
-  id: string;
-  term: string;
-  match_exact: boolean;
-}
-
-interface FilterConfig {
-  id: string;
-  min_rating: number | null;
-  max_rating: number | null;
-  date_range: number | null;
-  include_replies: boolean;
-  match_all_keywords: boolean;
-  filter_keywords: FilterKeyword[];
-}
-
-interface MonitoredApp {
-  app: App;
-  filter_config: FilterConfig;
-}
+import { MonitoredApp } from "@/types/playstore.types";
 
 export default function ReviewsPage() {
   const router = useRouter();
@@ -91,13 +68,13 @@ export default function ReviewsPage() {
         .eq("filter_configs.user_id", session.user.id);
 
       if (!error && data) {
-        const monitoredApps = data.map((item: any) => ({
-          app: item.app,
+        const monitoredApps = data.map((item) => ({
+          app: item.app[0],
           filter_config: {
-            ...item.filter_config,
-            filter_keywords: item.filter_config.filter_keywords || [],
+            ...item.filter_config[0],
+            filter_keywords: item.filter_config[0].filter_keywords || [],
           },
-        }));
+        })) as MonitoredApp[];
         setMonitoredApps(monitoredApps);
       }
       setIsLoading(false);

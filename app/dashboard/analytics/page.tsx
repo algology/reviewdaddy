@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { format } from "date-fns";
+import { FilterConfig } from "@/types/analytics.types";
 
 interface AnalyticsData {
   reviewTrend: {
@@ -39,6 +40,15 @@ interface FilterKeyword {
   match_exact: boolean;
 }
 
+interface MatchedReviewResponse {
+  id: string;
+  matched_at: string;
+  review: {
+    review_date: string;
+    app_id: string;
+  }[];
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
@@ -50,7 +60,7 @@ export default function AnalyticsPage() {
     keywordMatches: [],
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [filterConfig, setFilterConfig] = useState<any>(null);
+  const [filterConfig, setFilterConfig] = useState<FilterConfig | null>(null);
 
   useEffect(() => {
     async function loadApps() {
@@ -129,16 +139,15 @@ export default function AnalyticsPage() {
         );
 
         // Group matched reviews by date
-        const matchedReviewsByDate = matchedReviews.data.reduce(
-          (acc: Record<string, number>, item: any) => {
-            const date = new Date(item.review.review_date)
-              .toISOString()
-              .split("T")[0];
-            acc[date] = (acc[date] || 0) + 1;
-            return acc;
-          },
-          {}
-        );
+        const matchedReviewsByDate = matchedReviews.data.reduce<
+          Record<string, number>
+        >((acc, item: MatchedReviewResponse) => {
+          const date = new Date(item.review[0].review_date)
+            .toISOString()
+            .split("T")[0];
+          acc[date] = (acc[date] || 0) + 1;
+          return acc;
+        }, {});
 
         // Fill in missing dates with 0
         const trend = [];
@@ -197,8 +206,8 @@ export default function AnalyticsPage() {
         .eq("app_id", selectedApp)
         .single();
 
-      if (!error && data) {
-        setFilterConfig(data.filter_config);
+      if (!error && data?.filter_config) {
+        setFilterConfig(data.filter_config as unknown as FilterConfig);
       }
     }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { StatsCard } from "@/app/components/dashboard/StatsCard";
 import { Smartphone, MessageSquare, Filter, Star } from "lucide-react";
+import { MonitoredApp } from "@/types/playstore.types";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function DashboardPage() {
     totalReviews: 0,
     activeFilters: 0,
   });
-  const [recentApps, setRecentApps] = useState<any[]>([]);
+  const [recentApps, setRecentApps] = useState<MonitoredApp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -119,11 +120,11 @@ export default function DashboardPage() {
         </div>
         <div className="divide-y divide-accent">
           {recentApps.map((app) => (
-            <div key={app.id} className="flex items-center p-4">
+            <div key={app.app.id} className="flex items-center p-4">
               <div className="w-10 h-10 rounded-lg bg-accent-2/50 overflow-hidden relative">
                 <img
-                  src={app.icon_url}
-                  alt={app.name}
+                  src={app.app.icon_url}
+                  alt={app.app.name}
                   className="w-full h-full object-cover relative z-10"
                   loading="lazy"
                   crossOrigin="anonymous"
@@ -138,17 +139,20 @@ export default function DashboardPage() {
                 <div className="absolute inset-0 bg-accent-2/30 z-0" />
               </div>
               <div className="ml-4 flex-1">
-                <h3 className="font-medium">{app.name}</h3>
+                <h3 className="font-medium">{app.app.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Last synced: {new Date(app.last_synced_at).toLocaleString()}
+                  Last synced:{" "}
+                  {app.app.last_synced_at
+                    ? new Date(app.app.last_synced_at).toLocaleString()
+                    : "Never"}
                 </p>
               </div>
               <div className="text-right">
                 <div className="font-medium">
-                  {app.current_rating.toFixed(1)} ★
+                  {app.app.current_rating.toFixed(1)} ★
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {app.total_reviews.toLocaleString()} reviews
+                  {app.app.total_reviews.toLocaleString()} reviews
                 </div>
               </div>
             </div>

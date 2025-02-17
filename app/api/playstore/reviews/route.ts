@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
 import gplay from "google-play-scraper";
 import { supabase } from "@/lib/supabase";
-
-interface PlayStoreReview {
-  id: string;
-  userName: string;
-  date: string;
-  score: number;
-  text: string;
-  replyDate?: string;
-  replyText?: string;
-  thumbsUp: number;
-}
+import { PlayStoreReview } from "@/types/playstore.types";
+import { DBFilterConfig } from "@/types/filters";
+import { Database } from "@/types/database.types";
+import { BaseKeyword } from "@/types/base.types";
 
 interface ReviewsResponse {
   data: PlayStoreReview[];
@@ -25,7 +18,7 @@ export async function GET(request: Request) {
   const maxPages = 5; // This will fetch up to 1000 reviews (200 * 5)
   let currentPage = 0;
   let nextPageToken: string | undefined = undefined;
-  let allReviews: any[] = [];
+  let allReviews: PlayStoreReview[] = [];
 
   if (!appId || !filterConfigId) {
     return NextResponse.json(
@@ -48,8 +41,8 @@ export async function GET(request: Request) {
     if (filterConfigResult.error) throw filterConfigResult.error;
     if (appResult.error) throw appResult.error;
 
-    const filterConfig = filterConfigResult.data;
-    const app = appResult.data;
+    const filterConfig = filterConfigResult.data as DBFilterConfig;
+    const app = appResult.data as Database["public"]["Tables"]["apps"]["Row"];
 
     // 2. Fetch reviews from Google Play with pagination
     while (currentPage < maxPages) {
@@ -79,7 +72,7 @@ export async function GET(request: Request) {
     const { data: storedReviews, error: reviewsError } = await supabase
       .from("reviews")
       .upsert(
-        allReviews.map((review: any) => ({
+        allReviews.map((review: PlayStoreReview) => ({
           app_id: app.id,
           play_store_review_id: review.id,
           rating: review.score,
@@ -123,7 +116,7 @@ export async function GET(request: Request) {
       if (filterConfig.filter_keywords.length > 0) {
         const reviewText = review.text.toLowerCase();
         const keywordMatches = filterConfig.filter_keywords.map(
-          (keyword: any) => {
+          (keyword: BaseKeyword) => {
             const term = keyword.term.toLowerCase();
             return keyword.match_exact
               ? reviewText.includes(` ${term} `)
@@ -132,9 +125,9 @@ export async function GET(request: Request) {
         );
 
         if (filterConfig.match_all_keywords) {
-          if (!keywordMatches.every((match: any) => match)) return false;
+          if (!keywordMatches.every((match: boolean) => match)) return false;
         } else {
-          if (!keywordMatches.some((match: any) => match)) return false;
+          if (!keywordMatches.some((match: boolean) => match)) return false;
         }
       }
 

@@ -1,22 +1,13 @@
 import { Database } from "./database.types";
+import { BaseKeyword, BaseFilterConfig } from "./base.types";
 
 // Database row types
-export interface DBFilterConfig {
-  id: string;
+export interface DBFilterConfig extends BaseFilterConfig {
   user_id: string;
   name: string | null;
-  match_all_keywords: boolean;
-  min_rating: number | null;
-  max_rating: number | null;
-  date_range: number | null;
-  include_replies: boolean;
   created_at: string;
   updated_at: string;
-  filter_keywords: {
-    id: string;
-    term: string;
-    match_exact: boolean;
-  }[];
+  filter_keywords: BaseKeyword[];
   app: {
     play_store_id: string;
   };
@@ -35,8 +26,7 @@ export interface ComponentFilterConfig {
   includeReplies: boolean;
 }
 
-export interface ComponentKeywordFilter {
-  id?: string; // Optional for new keywords
-  term: string;
+export interface ComponentKeywordFilter
+  extends Omit<BaseKeyword, "match_exact"> {
   matchExact: boolean;
 }

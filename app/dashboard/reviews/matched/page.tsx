@@ -7,30 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-
-interface MatchedReview {
-  id: string;
-  review: {
-    id: string;
-    rating: number;
-    text: string;
-    reply_text: string | null;
-    reviewer_name: string;
-    review_date: string;
-    app: {
-      name: string;
-      icon_url: string;
-    };
-  };
-  filter_config: {
-    name: string;
-    filter_keywords: {
-      term: string;
-      match_exact: boolean;
-    }[];
-  };
-  matched_at: string;
-}
+import { MatchedReview } from "@/types/playstore.types";
 
 export default function MatchedReviewsPage() {
   const { toast } = useToast();
@@ -70,26 +47,23 @@ export default function MatchedReviewsPage() {
       .order("matched_at", { ascending: false });
 
     if (!error && data) {
-      const formattedReviews: MatchedReview[] = data.map((item: any) => ({
+      const formattedReviews = data.map((item) => ({
         id: item.id,
         matched_at: item.matched_at,
         review: {
-          id: item.review.id,
-          rating: item.review.rating,
-          text: item.review.text,
-          reply_text: item.review.reply_text,
-          reviewer_name: item.review.reviewer_name,
-          review_date: item.review.review_date,
-          app: {
-            name: item.review.app.name,
-            icon_url: item.review.app.icon_url,
-          },
+          id: item.review[0].id,
+          rating: item.review[0].rating,
+          text: item.review[0].text,
+          reply_text: item.review[0].reply_text,
+          reviewer_name: item.review[0].reviewer_name,
+          review_date: item.review[0].review_date,
+          app: item.review[0].app[0],
         },
         filter_config: {
-          name: item.filter_config.name,
-          filter_keywords: item.filter_config.filter_keywords || [],
+          name: item.filter_config[0].name,
+          filter_keywords: item.filter_config[0].filter_keywords || [],
         },
-      }));
+      })) as MatchedReview[];
       setReviews(formattedReviews);
     }
     setIsLoading(false);
