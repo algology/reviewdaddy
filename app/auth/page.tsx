@@ -12,8 +12,9 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
+import { Suspense } from "react";
 
-export default function AuthPage() {
+function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -43,7 +44,6 @@ export default function AuthPage() {
           },
         });
         if (error) throw error;
-        // Show verification message
         setError("Please check your email to verify your account");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -132,5 +132,13 @@ export default function AuthPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AuthContent />
+    </Suspense>
   );
 }
