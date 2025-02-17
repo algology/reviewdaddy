@@ -115,14 +115,12 @@ export default function ReviewsPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Review Monitor</h1>
-          <p className="text-muted-foreground mt-1">
-            Monitoring {monitoredApps.length} app
-            {monitoredApps.length !== 1 ? "s" : ""}
-          </p>
-        </div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Review Monitor</h1>
+        <Button onClick={() => router.push("/dashboard/reviews/matched")}>
+          <Tag className="w-4 h-4 mr-2" />
+          View Matched Reviews
+        </Button>
       </div>
 
       <Table>

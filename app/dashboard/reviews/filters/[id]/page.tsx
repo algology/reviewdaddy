@@ -20,7 +20,12 @@ export default function EditFilterPage() {
         .select(
           `
           *,
-          filter_keywords (*)
+          filter_keywords (*),
+          monitored_apps!inner (
+            app:apps!inner (
+              play_store_id
+            )
+          )
         `
         )
         .eq("id", params.id)
@@ -35,7 +40,10 @@ export default function EditFilterPage() {
         return;
       }
 
-      setFilterConfig(data as DBFilterConfig);
+      setFilterConfig({
+        ...data,
+        app: data.monitored_apps[0].app,
+      } as DBFilterConfig);
     }
 
     loadFilter();
@@ -92,6 +100,11 @@ export default function EditFilterPage() {
         title: "Filter updated",
         description: "Your changes have been saved",
       });
+
+      // Trigger review sync after saving filters
+      await fetch(
+        `/api/playstore/reviews?appId=${filterConfig.app.play_store_id}&filterConfigId=${filterConfig.id}`
+      );
 
       router.push("/dashboard/reviews");
     } catch (error) {

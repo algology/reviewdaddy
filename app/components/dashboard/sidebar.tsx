@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useState, useEffect } from "react";
 import {
   Home,
   BarChart,
@@ -14,6 +15,7 @@ import {
   Search,
   Smartphone,
   PlusCircle,
+  Tag,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,92 +42,139 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRouter } from "next/navigation";
-
-const menuItems = [
-  {
-    section: "Overview",
-    items: [
-      {
-        title: "Dashboard",
-        icon: Home,
-        href: "/dashboard",
-        tooltip: "Overview of all reviews",
-      },
-      {
-        title: "Analytics",
-        icon: BarChart,
-        href: "/dashboard/analytics",
-        tooltip: "Review metrics and trends",
-      },
-    ],
-  },
-  {
-    section: "Apps",
-    items: [
-      {
-        title: "My Apps",
-        icon: Smartphone,
-        href: "/dashboard/apps",
-        tooltip: "Manage connected apps",
-      },
-      {
-        title: "Add New App",
-        icon: PlusCircle,
-        href: "/dashboard/apps/new",
-        tooltip: "Connect a new app",
-      },
-    ],
-  },
-  {
-    section: "Review Management",
-    items: [
-      {
-        title: "Review Monitor",
-        icon: MessageSquare,
-        href: "/dashboard/reviews",
-        tooltip: "Browse all app reviews",
-      },
-      {
-        title: "By Rating",
-        icon: Star,
-        href: "/dashboard/reviews/ratings",
-        tooltip: "Filter reviews by rating",
-      },
-      {
-        title: "Search",
-        icon: Search,
-        href: "/dashboard/reviews/search",
-        tooltip: "Search through reviews",
-      },
-      {
-        title: "Filters",
-        icon: Filter,
-        href: "/dashboard/reviews/filters",
-        tooltip: "Create custom review filters",
-      },
-    ],
-  },
-  {
-    section: "Classification",
-    items: [
-      {
-        title: "Tags",
-        icon: Tags,
-        href: "/dashboard/tags",
-        tooltip: "Manage review tags",
-      },
-      {
-        title: "Issues",
-        icon: AlertCircle,
-        href: "/dashboard/issues",
-        tooltip: "Track reported issues",
-      },
-    ],
-  },
-];
+import { supabase } from "@/lib/supabase";
 
 export function DashboardSidebar() {
   const router = useRouter();
+  const [matchCount, setMatchCount] = useState(0);
+
+  const menuItems = [
+    {
+      section: "Overview",
+      items: [
+        {
+          title: "Dashboard",
+          icon: Home,
+          href: "/dashboard",
+          tooltip: "Overview of all reviews",
+        },
+        {
+          title: "Analytics",
+          icon: BarChart,
+          href: "/dashboard/analytics",
+          tooltip: "Review metrics and trends",
+        },
+      ],
+    },
+    {
+      section: "Apps",
+      items: [
+        {
+          title: "My Apps",
+          icon: Smartphone,
+          href: "/dashboard/apps",
+          tooltip: "Manage connected apps",
+        },
+        {
+          title: "Add New App",
+          icon: PlusCircle,
+          href: "/dashboard/apps/new",
+          tooltip: "Connect a new app",
+        },
+      ],
+    },
+    {
+      section: "Review Management",
+      items: [
+        {
+          title: "Review Monitor",
+          icon: MessageSquare,
+          href: "/dashboard/reviews",
+          tooltip: "Browse all app reviews",
+        },
+        {
+          title: "By Rating",
+          icon: Star,
+          href: "/dashboard/reviews/ratings",
+          tooltip: "Filter reviews by rating",
+        },
+        {
+          title: "Search",
+          icon: Search,
+          href: "/dashboard/reviews/search",
+          tooltip: "Search through reviews",
+        },
+        {
+          title: "Filters",
+          icon: Filter,
+          href: "/dashboard/reviews/filters",
+          tooltip: "Create custom review filters",
+        },
+        {
+          title: "Matched Reviews",
+          icon: Tag,
+          href: "/dashboard/reviews/matched",
+          badge: matchCount > 0 ? matchCount.toString() : undefined,
+          tooltip: "View reviews matching your filters",
+        },
+      ],
+    },
+    {
+      section: "Classification",
+      items: [
+        {
+          title: "Tags",
+          icon: Tags,
+          href: "/dashboard/tags",
+          tooltip: "Manage review tags",
+        },
+        {
+          title: "Issues",
+          icon: AlertCircle,
+          href: "/dashboard/issues",
+          tooltip: "Track reported issues",
+        },
+      ],
+    },
+  ];
+
+  useEffect(() => {
+    async function getMatchCount() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { count } = await supabase
+        .from("matched_reviews")
+        .select("*", { count: "exact", head: true })
+        .eq("is_lead", true);
+
+      setMatchCount(count || 0);
+    }
+
+    getMatchCount();
+
+    // Subscribe to changes
+    const channel = supabase
+      .channel("matched_reviews_count")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "matched_reviews",
+        },
+        () => {
+          getMatchCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
 
   return (
     <TooltipProvider delayDuration={0}>
