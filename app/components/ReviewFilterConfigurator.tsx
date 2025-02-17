@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ComponentFilterConfig, ComponentKeywordFilter } from "@/types/filters";
+import { useKeywordFilters } from "@/hooks/use-keyword-filters";
 
 interface PlayStoreApp {
   id: string;
@@ -26,21 +27,6 @@ interface PlayStoreApp {
   developer: string;
   rating: number;
   reviews: number;
-}
-
-interface KeywordFilter {
-  id: string;
-  term: string;
-  matchExact: boolean;
-}
-
-interface FilterConfig {
-  keywords: KeywordFilter[];
-  matchAllKeywords: boolean;
-  minRating: number;
-  maxRating: number;
-  dateRange: number;
-  includeReplies: boolean;
 }
 
 interface ReviewFilterConfiguratorProps {
@@ -56,13 +42,13 @@ export default function ReviewFilterConfigurator({
   onSave,
   showAppsList = true,
 }: ReviewFilterConfiguratorProps) {
-  const [keywordFilters, setKeywordFilters] = useState<
-    ComponentKeywordFilter[]
-  >(
-    initialConfig?.keywords?.length
-      ? initialConfig.keywords
-      : [{ id: "1", term: "", matchExact: false }]
-  );
+  const {
+    keywords: keywordFilters,
+    addKeyword,
+    removeKeyword,
+    updateKeyword,
+  } = useKeywordFilters(initialConfig?.keywords ?? []);
+
   const [filterConfig, setFilterConfig] = useState<ComponentFilterConfig>({
     keywords: initialConfig?.keywords ?? [],
     matchAllKeywords: initialConfig?.matchAllKeywords ?? false,
@@ -72,50 +58,26 @@ export default function ReviewFilterConfigurator({
     includeReplies: initialConfig?.includeReplies ?? true,
   });
 
-  const handleAddKeywordFilter = () => {
-    setKeywordFilters((prev) => [
-      ...prev,
-      { id: Math.random().toString(), term: "", matchExact: false },
-    ]);
+  const handleKeywordInput = (value: string) => {
+    const isExactMatch = value.startsWith('"') && value.endsWith('"');
+    const term = isExactMatch ? value.slice(1, -1) : value;
+    return addKeyword(term, isExactMatch);
   };
 
-  const handleRemoveKeywordFilter = (id: string) => {
-    setKeywordFilters((prev) => prev.filter((filter) => filter.id !== id));
-  };
-
-  const handleKeywordChange = (id: string, value: string) => {
-    setKeywordFilters((prev) =>
-      prev.map((filter) =>
-        filter.id === id ? { ...filter, term: value } : filter
-      )
-    );
-  };
-
-  const toggleExactMatch = (id: string) => {
-    setKeywordFilters((prev) =>
-      prev.map((filter) =>
-        filter.id === id
-          ? { ...filter, matchExact: !filter.matchExact }
-          : filter
-      )
-    );
+  const handleQuickSuggestion = (suggestion: string) => {
+    const isExactMatch = suggestion.startsWith('"') && suggestion.endsWith('"');
+    const term = isExactMatch ? suggestion.slice(1, -1) : suggestion;
+    addKeyword(term, isExactMatch);
   };
 
   const handleSaveFilters = async () => {
-    const validKeywords = keywordFilters
-      .filter((filter) => filter.term.trim())
-      .map((filter) => ({
-        term: filter.term.trim(),
-        matchExact: filter.matchExact,
-      }));
-
-    if (validKeywords.length === 0) {
+    if (keywordFilters.length === 0) {
       throw new Error("Please add at least one keyword to filter reviews");
     }
 
     const configToSave = {
       ...filterConfig,
-      keywords: validKeywords,
+      keywords: keywordFilters,
     };
 
     await onSave(configToSave);
@@ -207,30 +169,33 @@ export default function ReviewFilterConfigurator({
         <CardContent className="space-y-4">
           {/* Active Filters Display */}
           <div className="flex flex-wrap gap-2">
-            {keywordFilters.map(
-              (filter) =>
-                filter.term && (
-                  <Button
-                    key={filter.id}
-                    variant="outline"
-                    size="sm"
-                    className={`text-xs gap-2 h-7 text-[#00ff8c] border-[#00ff8c]/30 hover:bg-[#00ff8c]/10 ${
-                      filter.matchExact ? "bg-[#00ff8c]/10" : ""
-                    }`}
+            {keywordFilters
+              .filter((filter) => filter.term)
+              .map((filter) => (
+                <Button
+                  key={filter.id}
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => e.preventDefault()}
+                  className={`text-xs gap-2 h-7 text-[#00ff8c] border-[#00ff8c]/30 hover:bg-[#00ff8c]/10 ${
+                    filter.matchExact ? "bg-[#00ff8c]/10" : ""
+                  }`}
+                >
+                  {filter.matchExact ? `"${filter.term}"` : filter.term}
+                  <div
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (filter.id) {
+                        removeKeyword(filter.id);
+                      }
+                    }}
+                    className="cursor-pointer hover:text-[#00ff8c] p-1"
                   >
-                    {filter.matchExact ? `"${filter.term}"` : filter.term}
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveKeywordFilter(filter.id);
-                      }}
-                      className="cursor-pointer hover:text-[#00ff8c] p-1"
-                    >
-                      <X className="h-3 w-3" />
-                    </div>
-                  </Button>
-                )
-            )}
+                    <X className="h-3 w-3" />
+                  </div>
+                </Button>
+              ))}
           </div>
 
           {/* Input Area */}
@@ -241,20 +206,8 @@ export default function ReviewFilterConfigurator({
               className="pl-9 bg-sidebar-accent/40 border-accent-2"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.currentTarget.value) {
-                  const value = e.currentTarget.value;
-                  const isExactMatch =
-                    value.startsWith('"') && value.endsWith('"');
-                  const term = isExactMatch ? value.slice(1, -1) : value;
-
-                  if (term) {
-                    setKeywordFilters((prev) => [
-                      ...prev,
-                      {
-                        id: Math.random().toString(),
-                        term: term,
-                        matchExact: isExactMatch,
-                      },
-                    ]);
+                  const added = handleKeywordInput(e.currentTarget.value);
+                  if (added) {
                     e.currentTarget.value = "";
                   }
                 }
@@ -277,22 +230,7 @@ export default function ReviewFilterConfigurator({
                 variant="outline"
                 size="sm"
                 className="text-xs h-7"
-                onClick={() => {
-                  const isExactMatch =
-                    suggestion.startsWith('"') && suggestion.endsWith('"');
-                  const term = isExactMatch
-                    ? suggestion.slice(1, -1)
-                    : suggestion;
-
-                  setKeywordFilters((prev) => [
-                    ...prev,
-                    {
-                      id: Math.random().toString(),
-                      term: term,
-                      matchExact: isExactMatch,
-                    },
-                  ]);
-                }}
+                onClick={() => handleQuickSuggestion(suggestion)}
               >
                 <Plus className="h-3 w-3 mr-1" />
                 {suggestion}

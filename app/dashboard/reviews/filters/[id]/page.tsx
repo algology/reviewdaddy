@@ -57,21 +57,35 @@ export default function EditFilterPage() {
         })
         .eq("id", filterConfig.id);
 
-      // 2. Delete all existing keywords
-      await supabase
+      // 2. Upsert keywords
+      const { error: keywordsError } = await supabase
         .from("filter_keywords")
-        .delete()
-        .eq("filter_config_id", filterConfig.id);
-
-      // 3. Insert new keywords
-      if (config.keywords.length > 0) {
-        await supabase.from("filter_keywords").insert(
+        .upsert(
           config.keywords.map((k) => ({
+            id: k.id,
             filter_config_id: filterConfig.id,
             term: k.term,
             match_exact: k.matchExact,
           }))
         );
+
+      if (keywordsError) throw keywordsError;
+
+      // 3. Clean up deleted keywords
+      const currentKeywordIds = new Set(config.keywords.map((k) => k.id));
+      const existingKeywordIds = new Set(
+        filterConfig.filter_keywords.map((k) => k.id)
+      );
+
+      const deletedKeywordIds = [...existingKeywordIds].filter(
+        (id) => !currentKeywordIds.has(id)
+      );
+
+      if (deletedKeywordIds.length > 0) {
+        await supabase
+          .from("filter_keywords")
+          .delete()
+          .in("id", deletedKeywordIds);
       }
 
       toast({
@@ -96,6 +110,7 @@ export default function EditFilterPage() {
       <ReviewFilterConfigurator
         initialConfig={{
           keywords: filterConfig.filter_keywords.map((k) => ({
+            id: k.id,
             term: k.term,
             matchExact: k.match_exact,
           })),

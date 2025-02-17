@@ -1,24 +1,12 @@
-// Database types
-export interface DBFilterConfig {
-  id: string;
-  user_id: string;
-  name: string;
-  min_rating: number | null;
-  max_rating: number | null;
-  match_all_keywords: boolean;
-  date_range: number | null;
-  include_replies: boolean;
-  created_at: string;
-  updated_at: string;
-  filter_keywords: DBFilterKeyword[];
-}
+import { Database } from "./database.types";
 
-export interface DBFilterKeyword {
-  id: string;
-  filter_config_id: string;
-  term: string;
-  match_exact: boolean;
-}
+// Database row types
+export type DBFilterConfig =
+  Database["public"]["Tables"]["filter_configs"]["Row"] & {
+    filter_keywords: DBFilterKeyword[];
+  };
+export type DBFilterKeyword =
+  Database["public"]["Tables"]["filter_keywords"]["Row"];
 
 // Component types
 export interface ComponentFilterConfig {
@@ -31,7 +19,7 @@ export interface ComponentFilterConfig {
 }
 
 export interface ComponentKeywordFilter {
-  id?: string;
+  id?: string; // Optional for new keywords
   term: string;
   matchExact: boolean;
 }

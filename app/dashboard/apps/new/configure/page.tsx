@@ -65,78 +65,79 @@ export default function ConfigureFiltersPage() {
         return;
       }
 
-      // 1. Insert apps first
-      const { data: insertedApps, error: appsError } = await supabase
-        .from("apps")
-        .upsert(
-          selectedApps.map((app) => ({
-            play_store_id: app.id,
-            name: app.name,
-            developer: app.developer,
-            icon_url: app.icon,
-            current_rating: app.rating,
-            total_reviews: app.reviews,
-          })),
-          { onConflict: "play_store_id" }
-        )
-        .select();
+      // Create separate filter configs for each app
+      for (const app of selectedApps) {
+        // 1. Insert the app
+        const { data: insertedApp, error: appError } = await supabase
+          .from("apps")
+          .upsert(
+            {
+              play_store_id: app.id,
+              name: app.name,
+              developer: app.developer,
+              icon_url: app.icon,
+              current_rating: app.rating,
+              total_reviews: app.reviews,
+            },
+            { onConflict: "play_store_id" }
+          )
+          .select()
+          .single();
 
-      if (appsError || !insertedApps) {
-        throw appsError || new Error("No apps were inserted");
-      }
+        if (appError || !insertedApp) {
+          throw appError || new Error("Failed to insert app");
+        }
 
-      // 2. Create the filter configuration
-      const { data: newFilterConfig, error: filterError } = await supabase
-        .from("filter_configs")
-        .insert({
-          user_id: session.user.id,
-          name: `Filter for ${selectedApps.length} apps`,
-          match_all_keywords: config.matchAllKeywords,
-          min_rating: config.minRating,
-          max_rating: config.maxRating,
-          date_range: config.dateRange,
-          include_replies: config.includeReplies,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+        // 2. Create individual filter configuration for this app
+        const { data: newFilterConfig, error: filterError } = await supabase
+          .from("filter_configs")
+          .insert({
+            user_id: session.user.id,
+            name: `Filter for ${app.name}`,
+            match_all_keywords: config.matchAllKeywords,
+            min_rating: config.minRating,
+            max_rating: config.maxRating,
+            date_range: config.dateRange,
+            include_replies: config.includeReplies,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
 
-      if (filterError || !newFilterConfig) {
-        throw filterError || new Error("No filter configuration was created");
-      }
+        if (filterError || !newFilterConfig) {
+          throw (
+            filterError || new Error("Failed to create filter configuration")
+          );
+        }
 
-      // 3. Add the keywords
-      const { error: keywordsError } = await supabase
-        .from("filter_keywords")
-        .insert(
-          config.keywords.map((keyword) => ({
+        // 3. Add the keywords for this filter
+        const { error: keywordsError } = await supabase
+          .from("filter_keywords")
+          .insert(
+            config.keywords.map((keyword) => ({
+              filter_config_id: newFilterConfig.id,
+              term: keyword.term,
+              match_exact: keyword.matchExact,
+            }))
+          );
+
+        if (keywordsError) throw keywordsError;
+
+        // 4. Create monitored app entry
+        const { error: monitoredAppError } = await supabase
+          .from("monitored_apps")
+          .insert({
+            app_id: insertedApp.id,
             filter_config_id: newFilterConfig.id,
-            term: keyword.term,
-            match_exact: keyword.matchExact,
-          }))
-        );
+          });
 
-      if (keywordsError) throw keywordsError;
-
-      // 4. Add the apps to be monitored
-      const { error: monitoredAppsError } = await supabase
-        .from("monitored_apps")
-        .insert(
-          insertedApps.map((app) => ({
-            app_id: app.id,
-            filter_config_id: newFilterConfig.id,
-          }))
-        );
-
-      if (monitoredAppsError) throw monitoredAppsError;
-
-      // Success! Store the filter_config_id and redirect
-      sessionStorage.setItem("current_filter_id", newFilterConfig.id);
+        if (monitoredAppError) throw monitoredAppError;
+      }
 
       toast({
-        title: "Filter configuration saved",
-        description: "Redirecting to review monitor...",
+        title: "Apps configured",
+        description: "Your apps have been set up for monitoring",
       });
 
       router.push("/dashboard/reviews");
