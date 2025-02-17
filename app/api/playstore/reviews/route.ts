@@ -2,10 +2,30 @@ import { NextResponse } from "next/server";
 import gplay from "google-play-scraper";
 import { supabase } from "@/lib/supabase";
 
+interface PlayStoreReview {
+  id: string;
+  userName: string;
+  date: string;
+  score: number;
+  text: string;
+  replyDate?: string;
+  replyText?: string;
+  thumbsUp: number;
+}
+
+interface ReviewsResponse {
+  data: PlayStoreReview[];
+  nextPaginationToken?: string;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const appId = searchParams.get("appId");
   const filterConfigId = searchParams.get("filterConfigId");
+  const maxPages = 5; // This will fetch up to 1000 reviews (200 * 5)
+  let currentPage = 0;
+  let nextPageToken: string | undefined = undefined;
+  let allReviews: any[] = [];
 
   if (!appId || !filterConfigId) {
     return NextResponse.json(
@@ -31,20 +51,35 @@ export async function GET(request: Request) {
     const filterConfig = filterConfigResult.data;
     const app = appResult.data;
 
-    // 2. Fetch reviews from Google Play
-    const reviews = await gplay.reviews({
-      appId,
-      sort: gplay.sort.NEWEST,
-      num: 200,
-      paginate: true,
-      nextPaginationToken: searchParams.get("nextPage") || undefined,
-    });
+    // 2. Fetch reviews from Google Play with pagination
+    while (currentPage < maxPages) {
+      const reviews: ReviewsResponse = await gplay.reviews({
+        appId,
+        sort: gplay.sort.NEWEST,
+        num: 200,
+        paginate: true,
+        nextPaginationToken: nextPageToken,
+      });
+
+      // Add reviews to our collection
+      allReviews = [...allReviews, ...reviews.data];
+
+      // Set up next page token
+      nextPageToken = reviews.nextPaginationToken;
+      currentPage++;
+
+      // If no more pages, break
+      if (!nextPageToken) break;
+
+      // Add a small delay to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
     // 3. Store all reviews first
     const { data: storedReviews, error: reviewsError } = await supabase
       .from("reviews")
       .upsert(
-        reviews.data.map((review: any) => ({
+        allReviews.map((review: any) => ({
           app_id: app.id,
           play_store_review_id: review.id,
           rating: review.score,
@@ -133,7 +168,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       reviews: filteredReviews,
-      nextPage: reviews.nextPaginationToken,
+      nextPage: nextPageToken,
     });
   } catch (error) {
     console.error("Review scraping error details:", {
