@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const reviews = await gplay.reviews({
       appId,
       sort: gplay.sort.NEWEST,
-      num: 100,
+      num: 200,
       paginate: true,
       nextPaginationToken: searchParams.get("nextPage") || undefined,
     });
@@ -115,7 +115,11 @@ export async function GET(request: Request) {
             review_id: review.id,
             filter_config_id: filterConfigId,
             matched_at: new Date().toISOString(),
-          }))
+          })),
+          {
+            onConflict: "review_id,filter_config_id",
+            ignoreDuplicates: true,
+          }
         );
 
       if (matchError) throw matchError;
@@ -132,9 +136,17 @@ export async function GET(request: Request) {
       nextPage: reviews.nextPaginationToken,
     });
   } catch (error) {
-    console.error("Review scraping error:", error);
+    console.error("Review scraping error details:", {
+      error,
+      appId,
+      filterConfigId,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
     return NextResponse.json(
-      { error: "Failed to fetch reviews" },
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to fetch reviews",
+      },
       { status: 500 }
     );
   }

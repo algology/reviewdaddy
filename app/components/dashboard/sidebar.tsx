@@ -93,24 +93,6 @@ export function DashboardSidebar() {
           tooltip: "Browse all app reviews",
         },
         {
-          title: "By Rating",
-          icon: Star,
-          href: "/dashboard/reviews/ratings",
-          tooltip: "Filter reviews by rating",
-        },
-        {
-          title: "Search",
-          icon: Search,
-          href: "/dashboard/reviews/search",
-          tooltip: "Search through reviews",
-        },
-        {
-          title: "Filters",
-          icon: Filter,
-          href: "/dashboard/reviews/filters",
-          tooltip: "Create custom review filters",
-        },
-        {
           title: "Matched Reviews",
           icon: Tag,
           href: "/dashboard/reviews/matched",

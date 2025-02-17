@@ -248,8 +248,10 @@ export default function MatchedReviewsPage() {
                       {matchedReview.review.app.name}
                     </h3>
                     <span className="text-sm text-muted-foreground">
-                      Matched{" "}
-                      {new Date(matchedReview.matched_at).toLocaleDateString()}
+                      Reviewed on{" "}
+                      {new Date(
+                        matchedReview.review.review_date
+                      ).toLocaleDateString()}
                     </span>
                   </div>
 
