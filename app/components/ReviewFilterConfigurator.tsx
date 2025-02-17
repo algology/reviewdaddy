@@ -79,8 +79,7 @@ export default function ReviewFilterConfigurator({
     ]);
   };
 
-  const handleRemoveKeywordFilter = (id: string | undefined) => {
-    if (!id || keywordFilters.length === 1) return;
+  const handleRemoveKeywordFilter = (id: string) => {
     setKeywordFilters((prev) => prev.filter((filter) => filter.id !== id));
   };
 
@@ -106,7 +105,6 @@ export default function ReviewFilterConfigurator({
     const validKeywords = keywordFilters
       .filter((filter) => filter.term.trim())
       .map((filter) => ({
-        id: filter.id,
         term: filter.term.trim(),
         matchExact: filter.matchExact,
       }));

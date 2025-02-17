@@ -15,38 +15,15 @@ export default function EditFilterPage() {
 
   useEffect(() => {
     async function loadFilter() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push("/auth");
-        return;
-      }
-
       const { data, error } = await supabase
         .from("filter_configs")
         .select(
           `
-          id,
-          user_id,
-          name,
-          match_all_keywords,
-          min_rating,
-          max_rating,
-          date_range,
-          include_replies,
-          created_at,
-          updated_at,
-          filter_keywords (
-            id,
-            term,
-            match_exact
-          )
+          *,
+          filter_keywords (*)
         `
         )
         .eq("id", params.id)
-        .eq("user_id", session.user.id)
         .single();
 
       if (error) {
@@ -58,89 +35,77 @@ export default function EditFilterPage() {
         return;
       }
 
-      if (data) {
-        setFilterConfig(data as DBFilterConfig);
-      }
+      setFilterConfig(data as DBFilterConfig);
     }
 
     loadFilter();
-  }, [params.id, router, toast]);
+  }, [params.id, toast]);
 
-  if (!filterConfig) {
-    return <div>Loading...</div>;
-  }
+  if (!filterConfig) return <div>Loading...</div>;
 
-  const initialConfig: ComponentFilterConfig = {
-    keywords: filterConfig.filter_keywords.map((k) => ({
-      id: k.id,
-      term: k.term,
-      matchExact: k.match_exact,
-    })),
-    matchAllKeywords: filterConfig.match_all_keywords,
-    minRating: filterConfig.min_rating ?? 1,
-    maxRating: filterConfig.max_rating ?? 5,
-    dateRange: filterConfig.date_range ?? 30,
-    includeReplies: filterConfig.include_replies,
+  const handleSave = async (config: ComponentFilterConfig) => {
+    try {
+      // 1. Update filter config
+      await supabase
+        .from("filter_configs")
+        .update({
+          match_all_keywords: config.matchAllKeywords,
+          min_rating: config.minRating,
+          max_rating: config.maxRating,
+          date_range: config.dateRange,
+          include_replies: config.includeReplies,
+        })
+        .eq("id", filterConfig.id);
+
+      // 2. Delete all existing keywords
+      await supabase
+        .from("filter_keywords")
+        .delete()
+        .eq("filter_config_id", filterConfig.id);
+
+      // 3. Insert new keywords
+      if (config.keywords.length > 0) {
+        await supabase.from("filter_keywords").insert(
+          config.keywords.map((k) => ({
+            filter_config_id: filterConfig.id,
+            term: k.term,
+            match_exact: k.matchExact,
+          }))
+        );
+      }
+
+      toast({
+        title: "Filter updated",
+        description: "Your changes have been saved",
+      });
+
+      router.push("/dashboard/reviews");
+    } catch (error) {
+      toast({
+        title: "Error updating filter",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold">Edit Filter</h1>
-        <p className="text-muted-foreground mt-1">
-          Update your keyword filters for {filterConfig.filter_keywords.length}{" "}
-          keywords
-        </p>
-      </div>
-
+      <h1 className="text-2xl font-bold">Edit Filter</h1>
       <ReviewFilterConfigurator
-        initialConfig={initialConfig}
-        onSave={async (config) => {
-          try {
-            const { error: configError } = await supabase
-              .from("filter_configs")
-              .update({
-                match_all_keywords: config.matchAllKeywords,
-                min_rating: config.minRating,
-                max_rating: config.maxRating,
-                date_range: config.dateRange,
-                include_replies: config.includeReplies,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", filterConfig.id);
-
-            if (configError) throw configError;
-
-            const { error: keywordsError } = await supabase
-              .from("filter_keywords")
-              .upsert(
-                config.keywords.map((k) => ({
-                  id: k.id,
-                  filter_config_id: filterConfig.id,
-                  term: k.term,
-                  match_exact: k.matchExact,
-                }))
-              );
-
-            if (keywordsError) throw keywordsError;
-
-            toast({
-              title: "Filter updated",
-              description: "Your changes have been saved",
-            });
-
-            router.push("/dashboard/reviews");
-          } catch (error) {
-            toast({
-              title: "Error updating filter",
-              description:
-                error instanceof Error
-                  ? error.message
-                  : "An unknown error occurred",
-              variant: "destructive",
-            });
-          }
+        initialConfig={{
+          keywords: filterConfig.filter_keywords.map((k) => ({
+            term: k.term,
+            matchExact: k.match_exact,
+          })),
+          matchAllKeywords: filterConfig.match_all_keywords,
+          minRating: filterConfig.min_rating ?? 1,
+          maxRating: filterConfig.max_rating ?? 5,
+          dateRange: filterConfig.date_range ?? 30,
+          includeReplies: filterConfig.include_replies,
         }}
+        onSave={handleSave}
         showAppsList={false}
       />
     </div>

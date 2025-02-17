@@ -82,6 +82,26 @@ export interface Database {
           updated_at?: string;
         };
       };
+      filter_keywords: {
+        Row: {
+          id: string;
+          filter_config_id: string;
+          term: string;
+          match_exact: boolean;
+        };
+        Insert: {
+          id?: string;
+          filter_config_id: string;
+          term: string;
+          match_exact?: boolean;
+        };
+        Update: {
+          id?: string;
+          filter_config_id?: string;
+          term?: string;
+          match_exact?: boolean;
+        };
+      };
     };
   };
 }
