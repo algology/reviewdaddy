@@ -41,16 +41,18 @@ export default function ReviewsPage() {
         .from("monitored_apps")
         .select(
           `
-          app:apps!inner (
+          app:apps!app_id (
             id,
+            play_store_id,
             name,
             developer,
             icon_url,
             current_rating,
             total_reviews,
+            created_at,
             last_synced_at
           ),
-          filter_config:filter_configs!inner (
+          filter_config:filter_configs!filter_config_id (
             id,
             min_rating,
             max_rating,
@@ -65,16 +67,44 @@ export default function ReviewsPage() {
           )
         `
         )
-        .eq("filter_configs.user_id", session.user.id);
+        .eq("filter_configs.user_id", session.user.id)
+        .returns<
+          {
+            app: {
+              id: string;
+              play_store_id: string;
+              name: string;
+              developer: string;
+              icon_url: string;
+              current_rating: number;
+              total_reviews: number;
+              created_at: string;
+              last_synced_at: string | null;
+            };
+            filter_config: {
+              id: string;
+              min_rating: number | null;
+              max_rating: number | null;
+              date_range: number | null;
+              include_replies: boolean;
+              match_all_keywords: boolean;
+              filter_keywords: Array<{
+                id: string;
+                term: string;
+                match_exact: boolean;
+              }>;
+            };
+          }[]
+        >();
 
       if (!error && data) {
         const monitoredApps = data.map((item) => ({
-          app: item.app[0],
+          app: item.app,
           filter_config: {
-            ...item.filter_config[0],
-            filter_keywords: item.filter_config[0].filter_keywords || [],
+            ...item.filter_config,
+            filter_keywords: item.filter_config.filter_keywords || [],
           },
-        })) as MonitoredApp[];
+        }));
         setMonitoredApps(monitoredApps);
       }
       setIsLoading(false);

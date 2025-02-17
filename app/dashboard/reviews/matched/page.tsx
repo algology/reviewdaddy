@@ -23,19 +23,19 @@ export default function MatchedReviewsPage() {
         `
         id,
         matched_at,
-        review:reviews!inner (
+        review:reviews!review_id (
           id,
           rating,
           text,
           reply_text,
           reviewer_name,
           review_date,
-          app:apps!inner (
+          app:apps!app_id (
             name,
             icon_url
           )
         ),
-        filter_config:filter_configs!inner (
+        filter_config:filter_configs!filter_config_id (
           name,
           filter_keywords (
             term,
@@ -47,21 +47,21 @@ export default function MatchedReviewsPage() {
       .order("matched_at", { ascending: false });
 
     if (!error && data) {
-      const formattedReviews = data.map((item) => ({
+      const formattedReviews = data.map((item: any) => ({
         id: item.id,
         matched_at: item.matched_at,
         review: {
-          id: item.review[0].id,
-          rating: item.review[0].rating,
-          text: item.review[0].text,
-          reply_text: item.review[0].reply_text,
-          reviewer_name: item.review[0].reviewer_name,
-          review_date: item.review[0].review_date,
-          app: item.review[0].app[0],
+          id: item.review.id,
+          rating: item.review.rating,
+          text: item.review.text,
+          reply_text: item.review.reply_text,
+          reviewer_name: item.review.reviewer_name,
+          review_date: item.review.review_date,
+          app: item.review.app,
         },
         filter_config: {
-          name: item.filter_config[0].name,
-          filter_keywords: item.filter_config[0].filter_keywords || [],
+          name: item.filter_config.name,
+          filter_keywords: item.filter_config.filter_keywords || [],
         },
       })) as MatchedReview[];
       setReviews(formattedReviews);

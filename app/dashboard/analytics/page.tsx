@@ -44,9 +44,15 @@ interface MatchedReviewResponse {
   id: string;
   matched_at: string;
   review: {
+    id: string;
+    rating: number;
+    text: string;
     review_date: string;
-    app_id: string;
-  }[];
+    app: {
+      name: string;
+      icon_url: string;
+    };
+  };
 }
 
 export default function AnalyticsPage() {
@@ -64,6 +70,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     async function loadApps() {
+      console.log("Loading apps...");
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -77,9 +84,14 @@ export default function AnalyticsPage() {
         .select("id, name")
         .order("name");
 
-      if (data) {
+      console.log("Apps loaded:", data);
+
+      if (data && data.length > 0) {
         setApps(data);
+        // Set the first app as the selected app
+        setSelectedApp(data[0].id);
       }
+      setIsLoading(false);
     }
 
     loadApps();
@@ -87,98 +99,119 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     async function loadAnalytics() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/auth");
+      console.log("Loading analytics...", { selectedApp, filterConfig });
+      if (!selectedApp || !filterConfig) {
         return;
       }
 
-      // Get review trend data for the selected date range
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - dateRange);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          router.push("/auth");
+          return;
+        }
 
-      const [allReviews, matchedReviews] = await Promise.all([
-        // Get all reviews for the app
-        supabase
-          .from("reviews")
-          .select("review_date")
-          .eq("app_id", selectedApp)
-          .gte("review_date", cutoffDate.toISOString())
-          .order("review_date", { ascending: true }),
+        // Get review trend data for the selected date range
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - dateRange);
 
-        // Get matched reviews
-        supabase
-          .from("matched_reviews")
-          .select(
+        const [allReviews, matchedReviews] = await Promise.all([
+          // Get all reviews for the app
+          supabase
+            .from("reviews")
+            .select("review_date")
+            .eq("app_id", selectedApp)
+            .gte("review_date", cutoffDate.toISOString())
+            .order("review_date", { ascending: true }),
+
+          // Get matched reviews with corrected query
+          supabase
+            .from("matched_reviews")
+            .select(
+              `
+              id,
+              matched_at,
+              review:reviews!inner (
+                id,
+                rating,
+                text,
+                review_date,
+                app:apps!inner (
+                  name,
+                  icon_url
+                )
+              )
             `
-            id,
-            matched_at,
-            review:reviews!inner (
-              review_date,
-              app_id
             )
-          `
-          )
-          .eq("review.app_id", selectedApp)
-          .gte("review.review_date", cutoffDate.toISOString()),
-      ]);
+            .eq("filter_config_id", filterConfig.id)
+            .returns<MatchedReviewResponse[]>(),
+        ]);
 
-      if (allReviews.data && matchedReviews.data) {
-        // Group all reviews by date
-        const totalReviewsByDate = allReviews.data.reduce(
-          (acc: Record<string, number>, review) => {
+        if (allReviews.error) throw allReviews.error;
+        if (matchedReviews.error) throw matchedReviews.error;
+
+        if (allReviews.data && matchedReviews.data) {
+          // Group all reviews by date
+          const totalReviewsByDate = allReviews.data.reduce<
+            Record<string, number>
+          >((acc, review) => {
             const date = new Date(review.review_date)
               .toISOString()
               .split("T")[0];
             acc[date] = (acc[date] || 0) + 1;
             return acc;
-          },
-          {}
-        );
+          }, {});
 
-        // Group matched reviews by date
-        const matchedReviewsByDate = matchedReviews.data.reduce<
-          Record<string, number>
-        >((acc, item: MatchedReviewResponse) => {
-          const date = new Date(item.review[0].review_date)
-            .toISOString()
-            .split("T")[0];
-          acc[date] = (acc[date] || 0) + 1;
-          return acc;
-        }, {});
+          // Group matched reviews by date with corrected access
+          const matchedReviewsByDate = matchedReviews.data.reduce<
+            Record<string, number>
+          >((acc, item) => {
+            const date = new Date(item.review.review_date)
+              .toISOString()
+              .split("T")[0];
+            acc[date] = (acc[date] || 0) + 1;
+            return acc;
+          }, {});
 
-        // Fill in missing dates with 0
-        const trend = [];
-        for (
-          let d = new Date(cutoffDate);
-          d <= new Date();
-          d.setDate(d.getDate() + 1)
-        ) {
-          const date = d.toISOString().split("T")[0];
-          trend.push({
-            date,
-            totalReviews: totalReviewsByDate[date] || 0,
-            matchedReviews: matchedReviewsByDate[date] || 0,
+          // Fill in missing dates with 0
+          const trend = [];
+          for (
+            let d = new Date(cutoffDate);
+            d <= new Date();
+            d.setDate(d.getDate() + 1)
+          ) {
+            const date = d.toISOString().split("T")[0];
+            trend.push({
+              date,
+              totalReviews: totalReviewsByDate[date] || 0,
+              matchedReviews: matchedReviewsByDate[date] || 0,
+            });
+          }
+
+          setData({
+            reviewTrend: trend,
+            ratingDistribution: [],
+            keywordMatches: [],
           });
         }
 
-        setData({
-          reviewTrend: trend,
-          ratingDistribution: [],
-          keywordMatches: [],
-        });
-      }
+        console.log("Analytics loaded:", { allReviews, matchedReviews });
 
-      setIsLoading(false);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error loading analytics:", error);
+        setIsLoading(false);
+      }
     }
 
     loadAnalytics();
-  }, [router, selectedApp, dateRange]);
+  }, [router, selectedApp, dateRange, filterConfig]);
 
   useEffect(() => {
     async function loadFilterConfig() {
+      console.log("Loading filter config for app:", selectedApp);
       if (!selectedApp) {
         setFilterConfig(null);
         return;
@@ -206,6 +239,8 @@ export default function AnalyticsPage() {
         .eq("app_id", selectedApp)
         .single();
 
+      console.log("Filter config loaded:", data, "Error:", error);
+
       if (!error && data?.filter_config) {
         setFilterConfig(data.filter_config as unknown as FilterConfig);
       }
@@ -214,7 +249,8 @@ export default function AnalyticsPage() {
     loadFilterConfig();
   }, [selectedApp]);
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading || !selectedApp) return <div>Loading apps...</div>;
+  if (!filterConfig) return <div>Loading filter configuration...</div>;
 
   return (
     <div className="space-y-8 p-8">

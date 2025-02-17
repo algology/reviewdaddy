@@ -29,52 +29,78 @@ export default function DashboardPage() {
         return;
       }
 
-      // Get monitored apps count
-      const { count: appsCount } = await supabase
+      const { data: monitoredApps, error } = await supabase
         .from("monitored_apps")
-        .select("*", { count: "exact", head: true });
-
-      // Get matched reviews count
-      const { count: matchesCount } = await supabase
-        .from("matched_reviews")
-        .select("*", { count: "exact", head: true });
-
-      // Get active filters count
-      const { count: filtersCount } = await supabase
-        .from("filter_configs")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", session.user.id);
-
-      // Get recent apps with their stats
-      const { data: apps } = await supabase
-        .from("apps")
         .select(
           `
-          *,
-          monitored_apps!inner (
+          app:apps!app_id (
+            id,
+            play_store_id,
+            name,
+            developer,
+            icon_url,
+            current_rating,
+            total_reviews,
             created_at,
-            filter_config:filter_configs (
-              name
+            last_synced_at
+          ),
+          filter_config:filter_configs!filter_config_id (
+            id,
+            min_rating,
+            max_rating,
+            date_range,
+            include_replies,
+            match_all_keywords,
+            filter_keywords (
+              id,
+              term,
+              match_exact
             )
           )
         `
         )
-        .order("last_synced_at", { ascending: false })
-        .limit(5);
+        .eq("filter_configs.user_id", session.user.id)
+        .returns<
+          {
+            app: {
+              id: string;
+              play_store_id: string;
+              name: string;
+              developer: string;
+              icon_url: string;
+              current_rating: number;
+              total_reviews: number;
+              created_at: string;
+              last_synced_at: string | null;
+            };
+            filter_config: {
+              id: string;
+              min_rating: number | null;
+              max_rating: number | null;
+              date_range: number | null;
+              include_replies: boolean;
+              match_all_keywords: boolean;
+              filter_keywords: Array<{
+                id: string;
+                term: string;
+                match_exact: boolean;
+              }>;
+            };
+          }[]
+        >();
 
-      setStats({
-        totalApps: appsCount || 0,
-        totalMatches: matchesCount || 0,
-        averageRating:
-          apps?.reduce((acc, app) => acc + Number(app.current_rating), 0) /
-            (apps?.length || 1) || 0,
-        totalReviews:
-          apps?.reduce((acc, app) => acc + app.total_reviews, 0) || 0,
-        activeFilters: filtersCount || 0,
-      });
+      if (!error && monitoredApps) {
+        setStats({
+          totalApps: monitoredApps.length,
+          totalMatches: 0,
+          averageRating: 0,
+          totalReviews: 0,
+          activeFilters: 0,
+        });
 
-      setRecentApps(apps || []);
-      setIsLoading(false);
+        setRecentApps(monitoredApps);
+        setIsLoading(false);
+      }
     }
 
     loadDashboardData();
