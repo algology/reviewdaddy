@@ -12,6 +12,7 @@ import {
   Calendar,
   Tag,
   MessageSquare,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,13 +201,27 @@ export default function ReviewsPage() {
                     </span>
                   )}
 
-                  {/* Keywords Count */}
+                  {/* Keywords */}
                   {(app.filter_config.filter_keywords?.length ?? 0) > 0 && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
-                      <Tag className="h-3 w-3 mr-1" />
-                      {app.filter_config.filter_keywords?.length} keywords
-                      {app.filter_config.match_all_keywords ? " (ALL)" : ""}
-                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {app.filter_config.filter_keywords.map((keyword) => (
+                        <span
+                          key={keyword.id}
+                          className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30"
+                        >
+                          <Tag className="h-3 w-3 mr-1" />
+                          {keyword.match_exact
+                            ? `"${keyword.term}"`
+                            : keyword.term}
+                        </span>
+                      ))}
+                      {app.filter_config.match_all_keywords && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-accent-2/50 text-[#00ff8c] border border-[#00ff8c]/30">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Match All
+                        </span>
+                      )}
+                    </div>
                   )}
 
                   {/* Developer Replies */}
