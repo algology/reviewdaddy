@@ -87,7 +87,7 @@ function AuthContent() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-accent-1 border-accent-2"
+                className="bg-gray-100 border-accent-2 text-black placeholder:text-gray-500"
               />
             </div>
             <div className="space-y-2">
@@ -97,7 +97,7 @@ function AuthContent() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-accent-1 border-accent-2"
+                className="bg-gray-100 border-accent-2 text-black placeholder:text-gray-500"
               />
             </div>
             {error && (
