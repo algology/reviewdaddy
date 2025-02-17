@@ -79,7 +79,7 @@ const menuItems = [
     section: "Review Management",
     items: [
       {
-        title: "All Reviews",
+        title: "Review Monitor",
         icon: MessageSquare,
         href: "/dashboard/reviews",
         tooltip: "Browse all app reviews",

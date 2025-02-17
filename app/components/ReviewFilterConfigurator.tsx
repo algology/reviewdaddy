@@ -58,6 +58,19 @@ export default function ReviewFilterConfigurator({
     includeReplies: initialConfig?.includeReplies ?? true,
   });
 
+  const [selectedRatings, setSelectedRatings] = useState<number[]>(() => {
+    if (!initialConfig) return [];
+
+    if (initialConfig.minRating === initialConfig.maxRating) {
+      return [initialConfig.minRating];
+    }
+
+    return Array.from(
+      { length: initialConfig.maxRating - initialConfig.minRating + 1 },
+      (_, i) => i + initialConfig.minRating
+    );
+  });
+
   const handleKeywordInput = (value: string) => {
     const isExactMatch = value.startsWith('"') && value.endsWith('"');
     const term = isExactMatch ? value.slice(1, -1) : value;
@@ -258,109 +271,54 @@ export default function ReviewFilterConfigurator({
           <h3 className="text-lg font-medium">Additional Filters</h3>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Rating Range */}
+          {/* Rating Filter */}
           <div>
-            <Label className="mb-2 block">Rating Range</Label>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap">Min Rating:</Label>
-                <div className="flex items-center gap-1 p-2 rounded-md bg-sidebar-accent/40 border border-accent-2">
-                  <select
-                    className="bg-transparent outline-none"
-                    value={filterConfig.minRating}
-                    onChange={(e) =>
-                      setFilterConfig((prev) => ({
-                        ...prev,
-                        minRating: Number(e.target.value),
-                        maxRating: Math.max(
-                          Number(e.target.value),
-                          prev.maxRating
-                        ),
-                      }))
-                    }
-                  >
-                    {[1, 2, 3, 4, 5].map((rating) => (
-                      <option key={rating} value={rating}>
-                        {rating}
-                      </option>
-                    ))}
-                  </select>
-                  <Star className="h-4 w-4 text-[#00ff8c] fill-[#00ff8c]" />
-                </div>
-              </div>
-              <span className="text-muted-foreground">to</span>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap">Max Rating:</Label>
-                <div className="flex items-center gap-1 p-2 rounded-md bg-sidebar-accent/40 border border-accent-2">
-                  <select
-                    className="bg-transparent outline-none"
-                    value={filterConfig.maxRating}
-                    onChange={(e) =>
-                      setFilterConfig((prev) => ({
-                        ...prev,
-                        maxRating: Number(e.target.value),
-                        minRating: Math.min(
-                          Number(e.target.value),
-                          prev.minRating
-                        ),
-                      }))
-                    }
-                  >
-                    {[1, 2, 3, 4, 5].map((rating) => (
-                      <option key={rating} value={rating}>
-                        {rating}
-                      </option>
-                    ))}
-                  </select>
-                  <Star className="h-4 w-4 text-[#00ff8c] fill-[#00ff8c]" />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-2">
+            <Label className="mb-2 block">Rating Filter</Label>
+            <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((rating) => (
                 <Button
                   key={rating}
                   variant="outline"
                   size="sm"
                   className={`gap-1 ${
-                    rating >= filterConfig.minRating &&
-                    rating <= filterConfig.maxRating
-                      ? "border-[#00ff8c] bg-[#00ff8c]/10"
+                    selectedRatings.includes(rating)
+                      ? "border-[#00ff8c] bg-[#00ff8c]/10 text-[#00ff8c]"
                       : ""
                   }`}
                   onClick={() => {
-                    if (
-                      rating === filterConfig.minRating &&
-                      rating === filterConfig.maxRating
-                    ) {
-                      // Reset to full range if clicking the only selected rating
-                      setFilterConfig((prev) => ({
-                        ...prev,
-                        minRating: 1,
-                        maxRating: 5,
+                    setSelectedRatings((prev) => {
+                      const newRatings = prev.includes(rating)
+                        ? prev.filter((r) => r !== rating)
+                        : [...prev, rating].sort((a, b) => a - b);
+
+                      setFilterConfig((prevConfig) => ({
+                        ...prevConfig,
+                        minRating:
+                          newRatings.length > 0 ? Math.min(...newRatings) : 1,
+                        maxRating:
+                          newRatings.length > 0 ? Math.max(...newRatings) : 5,
                       }));
-                    } else {
-                      // Set both min and max to the clicked rating
-                      setFilterConfig((prev) => ({
-                        ...prev,
-                        minRating: rating,
-                        maxRating: rating,
-                      }));
-                    }
+
+                      return newRatings;
+                    });
                   }}
                 >
                   {rating}{" "}
                   <Star
                     className={`h-3 w-3 ${
-                      rating >= filterConfig.minRating &&
-                      rating <= filterConfig.maxRating
-                        ? "fill-[#00ff8c]"
-                        : ""
+                      selectedRatings.includes(rating) ? "fill-[#00ff8c]" : ""
                     }`}
                   />
                 </Button>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {selectedRatings.length === 0
+                ? "Show all ratings"
+                : `Show reviews with ${
+                    selectedRatings.length === 1 ? "rating" : "ratings"
+                  }: ${selectedRatings.join(", ")}`}
+            </p>
           </div>
 
           {/* Date Range */}
