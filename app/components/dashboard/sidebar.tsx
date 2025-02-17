@@ -39,6 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useRouter } from "next/navigation";
 
 const menuItems = [
   {
@@ -124,6 +125,8 @@ const menuItems = [
 ];
 
 export function DashboardSidebar() {
+  const router = useRouter();
+
   return (
     <TooltipProvider delayDuration={0}>
       <Sidebar collapsible="icon" className="sticky top-0 h-screen">
@@ -145,13 +148,19 @@ export function DashboardSidebar() {
                         <SidebarMenuItem key={item.title}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <SidebarMenuButton asChild>
-                                <a href={item.href}>
+                              <SidebarMenuButton
+                                asChild
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  router.push(item.href);
+                                }}
+                              >
+                                <button>
                                   <item.icon className="h-4 w-4 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4" />
                                   <span className="group-data-[collapsible=icon]:hidden">
                                     {item.title}
                                   </span>
-                                </a>
+                                </button>
                               </SidebarMenuButton>
                             </TooltipTrigger>
                             <TooltipContent
