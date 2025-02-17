@@ -7,7 +7,6 @@ import {
   X,
   Star,
   Calendar,
-  MessageSquare,
   Tag,
   ChevronDown,
   ArrowRight,
@@ -17,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ComponentFilterConfig, ComponentKeywordFilter } from "@/types/filters";
+import { ComponentFilterConfig } from "@/types/filters";
 import { useKeywordFilters } from "@/hooks/use-keyword-filters";
 
 interface PlayStoreApp {
@@ -46,7 +45,6 @@ export default function ReviewFilterConfigurator({
     keywords: keywordFilters,
     addKeyword,
     removeKeyword,
-    updateKeyword,
   } = useKeywordFilters(initialConfig?.keywords ?? []);
 
   const [filterConfig, setFilterConfig] = useState<ComponentFilterConfig>({
@@ -253,7 +251,10 @@ export default function ReviewFilterConfigurator({
 
           {/* Helper Text */}
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>• Use quotes for exact phrase matching (e.g., "can't login")</p>
+            <p>
+              • Use quotes for exact phrase matching (e.g., &quot;can&apos;t
+              login&quot;)
+            </p>
             <p>• Keywords are case-insensitive</p>
             <p>
               •{" "}

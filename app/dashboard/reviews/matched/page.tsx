@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Star, MessageSquare, Calendar, Tag, RefreshCw } from "lucide-react";
+import { Star, MessageSquare, Tag, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,17 +30,6 @@ interface MatchedReview {
     }[];
   };
   matched_at: string;
-}
-
-interface MonitoredAppResponse {
-  app: {
-    play_store_id: string;
-  };
-  filter_config: {
-    id: string;
-    user_id: string;
-  };
-  filter_config_id: string;
 }
 
 export default function MatchedReviewsPage() {

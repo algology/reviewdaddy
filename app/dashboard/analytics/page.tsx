@@ -3,24 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnalyticsFilter } from "@/app/components/dashboard/AnalyticsFilter";
-import { StatsCard } from "@/app/components/dashboard/StatsCard";
-import {
-  Star,
-  MessageSquare,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  Filter,
-  Calendar,
-} from "lucide-react";
+import { Star, MessageSquare, Filter, Calendar } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -29,13 +14,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Legend,
-  Area,
-  AreaChart,
 } from "recharts";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 
 interface AnalyticsData {
   reviewTrend: {
@@ -57,13 +37,6 @@ interface FilterKeyword {
   id: string;
   term: string;
   match_exact: boolean;
-}
-
-interface FilterConfig {
-  min_rating?: number;
-  max_rating?: number;
-  date_range?: number;
-  filter_keywords: FilterKeyword[];
 }
 
 export default function AnalyticsPage() {

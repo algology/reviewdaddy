@@ -3,11 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search,
-  SlidersHorizontal,
   Star,
-  ChevronDown,
-  ExternalLink,
   Pencil,
   Calendar,
   Tag,
@@ -15,7 +11,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,

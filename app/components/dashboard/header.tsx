@@ -2,7 +2,7 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Bell, Search, User2, ChevronDown } from "lucide-react";
+import { Bell, Search, User2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,

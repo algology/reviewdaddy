@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import ReviewFilterConfigurator from "@/app/components/ReviewFilterConfigurator";
@@ -16,21 +14,6 @@ interface PlayStoreApp {
   developer: string;
   rating: number;
   reviews: number;
-}
-
-interface KeywordFilter {
-  id: string;
-  term: string;
-  matchExact: boolean;
-}
-
-interface FilterConfig {
-  keywords: KeywordFilter[];
-  matchAllKeywords: boolean;
-  minRating: number;
-  maxRating: number;
-  dateRange: number; // days
-  includeReplies: boolean;
 }
 
 export default function ConfigureFiltersPage() {
